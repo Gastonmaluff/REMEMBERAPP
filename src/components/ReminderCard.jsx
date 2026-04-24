@@ -1,5 +1,6 @@
 import { CalendarDays, Check, Clock3, RotateCcw } from 'lucide-react'
 import { getCategoryMeta, getReminderVisual, renderReminderIcon } from '../reminderOptions'
+import { isMariaPortalReminder } from '../portalConfig'
 import { formatShortDate } from '../reminderUtils'
 
 function ReminderCard({
@@ -17,6 +18,7 @@ function ReminderCard({
   const isRestoring = actionState?.action === 'restoring'
   const isBusy = Boolean(actionState)
   const showCheckedState = isCompletedView || isCompleting
+  const showMariaSource = isMariaPortalReminder(reminder)
   const cardClassName = [
     'reminder-card',
     isCompletedView ? 'is-completed-view' : '',
@@ -63,6 +65,8 @@ function ReminderCard({
           >
             {reminder.category}
           </span>
+
+          {showMariaSource ? <span className="origin-pill">Maria</span> : null}
         </div>
       </div>
 

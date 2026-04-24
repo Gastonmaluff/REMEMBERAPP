@@ -1,19 +1,35 @@
-import { collection as liveCollection, onSnapshot } from 'firebase/firestore'
+import {
+  collection as liveCollection,
+  onSnapshot,
+  query as liveQuery,
+  where as liveWhere,
+} from 'firebase/firestore'
 import {
   addDoc,
   collection,
   doc,
   getDocs,
+  query,
   serverTimestamp,
   updateDoc,
+  where,
 } from 'firebase/firestore/lite'
-import { db, liteDb } from '../firebase'
+import { db, liteDb } from '../firebase.js'
 
 const REMINDERS_COLLECTION = 'reminders'
 const SAVE_TIMEOUT_MS = 10000
+const MARIA_PORTAL_SOURCE = 'maria_portal'
 
 const remindersCollection = liveCollection(db, REMINDERS_COLLECTION)
 const remindersWriteCollection = collection(liteDb, REMINDERS_COLLECTION)
+const mariaPortalCollection = liveQuery(
+  remindersCollection,
+  liveWhere('source', '==', MARIA_PORTAL_SOURCE),
+)
+const mariaPortalWriteCollection = query(
+  remindersWriteCollection,
+  where('source', '==', MARIA_PORTAL_SOURCE),
+)
 
 function normalizeReminder(snapshot) {
   const data = snapshot.data()
@@ -24,6 +40,7 @@ function normalizeReminder(snapshot) {
     notes: data.notes ?? '',
     date: data.date ?? '',
     time: data.time ?? '',
+    datetime: data.datetime ?? '',
     category: data.category ?? 'Personal',
     priority: data.priority ?? 'Media',
     repeat: data.repeat ?? 'none',
@@ -31,6 +48,9 @@ function normalizeReminder(snapshot) {
     completed: Boolean(data.completed),
     icon: data.icon ?? 'file',
     color: data.color ?? '#2F80ED',
+    createdBy: data.createdBy ?? '',
+    assignedTo: data.assignedTo ?? '',
+    source: data.source ?? '',
     createdAt: data.createdAt?.toMillis?.() ?? null,
     updatedAt: data.updatedAt?.toMillis?.() ?? null,
   }
@@ -38,19 +58,30 @@ function normalizeReminder(snapshot) {
 
 function buildReminderPayload(reminder) {
   const timestamp = Date.now()
+  const title = String(reminder.title ?? '').trim()
+  const notes = String(reminder.notes ?? '').trim()
+  const date = reminder.date ?? ''
+  const time = reminder.time ?? ''
+  const datetime =
+    reminder.datetime ??
+    (date && time ? `${date}T${time}` : '')
 
   return {
-    title: reminder.title.trim(),
-    notes: reminder.notes.trim(),
-    date: reminder.date,
-    time: reminder.time,
-    category: reminder.category,
-    priority: reminder.priority,
-    repeat: reminder.repeat,
-    alertMinutes: Number(reminder.alertMinutes),
-    completed: false,
+    title,
+    notes,
+    date,
+    time,
+    datetime,
+    category: reminder.category ?? 'Personal',
+    priority: reminder.priority ?? 'Media',
+    repeat: reminder.repeat ?? 'none',
+    alertMinutes: Number(reminder.alertMinutes ?? 10),
+    completed: reminder.completed === true,
     icon: reminder.icon ?? 'file',
     color: reminder.color ?? '#2F80ED',
+    createdBy: reminder.createdBy ?? '',
+    assignedTo: reminder.assignedTo ?? '',
+    source: reminder.source ?? '',
     createdAt: timestamp,
     updatedAt: timestamp,
   }
@@ -61,6 +92,28 @@ function toFirestoreDocument(payload) {
     ...payload,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+  }
+}
+
+async function persistReminder(payload, logs = {}) {
+  const { onStart, onSuccess, onError } = logs
+
+  onStart?.(payload)
+
+  try {
+    const docRef = await withTimeout(
+      addDoc(remindersWriteCollection, toFirestoreDocument(payload)),
+    )
+
+    onSuccess?.(docRef.id, payload)
+
+    return {
+      id: docRef.id,
+      ...payload,
+    }
+  } catch (error) {
+    onError?.(error, payload)
+    throw toUserFacingError(error)
   }
 }
 
@@ -116,31 +169,65 @@ export function subscribeToReminders(onData, onError) {
   )
 }
 
+export function subscribeToMariaPortalReminders(onData, onError) {
+  return onSnapshot(
+    mariaPortalCollection,
+    (snapshot) => {
+      onData(snapshot.docs.map(normalizeReminder))
+    },
+    onError,
+  )
+}
+
 export async function fetchReminders() {
   const snapshot = await withTimeout(getDocs(remindersWriteCollection))
+  return snapshot.docs.map(normalizeReminder)
+}
+
+export async function fetchMariaPortalReminders() {
+  const snapshot = await withTimeout(getDocs(mariaPortalWriteCollection))
   return snapshot.docs.map(normalizeReminder)
 }
 
 export async function createReminder(reminder) {
   const payload = buildReminderPayload(reminder)
 
-  console.info('Saving reminder payload:', payload)
+  return persistReminder(payload, {
+    onStart: (currentPayload) => {
+      console.info('Saving reminder payload:', currentPayload)
+    },
+    onSuccess: (reminderId) => {
+      console.info('Reminder saved with id:', reminderId)
+    },
+    onError: (error) => {
+      console.error('Error saving reminder:', error)
+    },
+  })
+}
 
-  try {
-    const docRef = await withTimeout(
-      addDoc(remindersWriteCollection, toFirestoreDocument(payload)),
-    )
+export async function createMariaPortalReminder(reminder) {
+  const payload = buildReminderPayload({
+    ...reminder,
+    category: reminder.category ?? 'Personal',
+    priority: reminder.priority ?? 'Media',
+    repeat: reminder.repeat ?? 'none',
+    alertMinutes: reminder.alertMinutes ?? 10,
+    createdBy: 'maria',
+    assignedTo: 'gaston',
+    source: MARIA_PORTAL_SOURCE,
+  })
 
-    console.info('Reminder saved with id:', docRef.id)
-
-    return {
-      id: docRef.id,
-      ...payload,
-    }
-  } catch (error) {
-    console.error('Error saving reminder:', error)
-    throw toUserFacingError(error)
-  }
+  return persistReminder(payload, {
+    onStart: (currentPayload) => {
+      console.info('Creating reminder from Maria portal:', currentPayload)
+    },
+    onSuccess: (reminderId) => {
+      console.info('Maria reminder created:', reminderId)
+    },
+    onError: (error) => {
+      console.error('Error creating Maria reminder:', error)
+    },
+  })
 }
 
 export async function toggleReminderCompleted(reminderId, completed) {
