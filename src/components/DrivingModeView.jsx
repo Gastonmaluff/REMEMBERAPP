@@ -13,6 +13,11 @@ import {
   getDrivingBucket,
   getDrivingBucketLabel,
 } from '../reminderUtils'
+import {
+  isMariaReminder,
+  logMariaReminderRender,
+  MARIA_REMINDER_LABEL,
+} from '../portalConfig'
 
 const REFRESH_INTERVAL_MS = 7 * 60 * 1000
 
@@ -22,12 +27,23 @@ function DrivingReminderRow({ actionState, onComplete, reminder, todayKey }) {
   const bucket = getDrivingBucket(reminder, todayKey)
   const isCompleting = actionState?.action === 'completing'
   const isBusy = Boolean(actionState)
+  const isMariaSource = isMariaReminder(reminder)
+
+  useEffect(() => {
+    if (isMariaSource) {
+      logMariaReminderRender(reminder.id)
+    }
+  }, [isMariaSource, reminder.id])
 
   return (
     <article
-      className={`driving-row driving-row--${bucket} ${isCompleting ? 'is-completing' : ''}`}
+      className={`driving-row driving-row--${bucket} ${isMariaSource ? 'is-maria' : ''} ${isCompleting ? 'is-completing' : ''}`}
     >
       <div className="driving-row__main">
+        {isMariaSource ? (
+          <span className="origin-pill origin-pill--driving">{MARIA_REMINDER_LABEL}</span>
+        ) : null}
+
         <div className="driving-row__title-line">
           <h3 className="driving-row__title">{reminder.title}</h3>
           <span className={`driving-status driving-status--${bucket}`}>

@@ -15,6 +15,7 @@ import {
   where,
 } from 'firebase/firestore/lite'
 import { db, liteDb } from '../firebase.js'
+import { MARIA_REMINDER_COLOR } from '../portalConfig.js'
 
 const REMINDERS_COLLECTION = 'reminders'
 const SAVE_TIMEOUT_MS = 10000
@@ -209,9 +210,10 @@ export async function createMariaPortalReminder(reminder) {
   const payload = buildReminderPayload({
     ...reminder,
     category: reminder.category ?? 'Personal',
-    priority: reminder.priority ?? 'Media',
+    priority: 'Alta',
     repeat: reminder.repeat ?? 'none',
     alertMinutes: reminder.alertMinutes ?? 10,
+    color: reminder.color ?? MARIA_REMINDER_COLOR,
     createdBy: 'maria',
     assignedTo: 'gaston',
     source: MARIA_PORTAL_SOURCE,
@@ -219,7 +221,7 @@ export async function createMariaPortalReminder(reminder) {
 
   return persistReminder(payload, {
     onStart: (currentPayload) => {
-      console.info('Creating reminder from Maria portal:', currentPayload)
+      console.info('Creating Maria reminder with high priority:', currentPayload)
     },
     onSuccess: (reminderId) => {
       console.info('Maria reminder created:', reminderId)

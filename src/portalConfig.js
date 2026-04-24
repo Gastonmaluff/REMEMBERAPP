@@ -1,4 +1,6 @@
 export const MARIA_PORTAL_TOKEN = 'maria-gaston-2026'
+export const MARIA_REMINDER_LABEL = 'MARIA'
+export const MARIA_REMINDER_COLOR = '#E35D9B'
 
 export function getPortalRequest() {
   const params = new URLSearchParams(window.location.search)
@@ -13,9 +15,19 @@ export function getPortalRequest() {
   }
 }
 
-export function isMariaPortalReminder(reminder) {
+export function isMariaReminder(reminder) {
   return (
     reminder?.source === 'maria_portal' ||
     (reminder?.createdBy === 'maria' && reminder?.assignedTo === 'gaston')
   )
+}
+
+export function isMariaPortalReminder(reminder) {
+  return isMariaReminder(reminder)
+}
+
+export function logMariaReminderRender(reminderId) {
+  if (reminderId) {
+    console.info('Rendering Maria reminder:', reminderId)
+  }
 }
