@@ -120,61 +120,63 @@ function DrivingModeView({
 
   return (
     <div className="driving-mode" role="dialog" aria-modal="true" aria-labelledby="driving-mode-title">
-      <header className="driving-header">
-        <button className="icon-button icon-button--ghost" onClick={onClose} type="button" aria-label="Cerrar modo manejo">
-          <ArrowLeft size={22} />
-        </button>
+      <div className="driving-mode__scroll">
+        <header className="driving-header">
+          <button className="icon-button icon-button--ghost" onClick={onClose} type="button" aria-label="Cerrar modo manejo">
+            <ArrowLeft size={22} />
+          </button>
 
-        <div className="driving-header__copy">
-          <p className="driving-header__eyebrow">Vista rapida</p>
-          <h2 id="driving-mode-title">Modo Manejo</h2>
-          <p className="driving-header__status">
-            {isRefreshing
-              ? 'Actualizando...'
-              : `Ultima actualizacion: ${formatLastUpdated(lastUpdatedAt)}`}
+          <div className="driving-header__copy">
+            <p className="driving-header__eyebrow">Vista rapida</p>
+            <h2 id="driving-mode-title">Modo Manejo</h2>
+            <p className="driving-header__status">
+              {isRefreshing
+                ? 'Actualizando...'
+                : `Ultima actualizacion: ${formatLastUpdated(lastUpdatedAt)}`}
+            </p>
+          </div>
+
+          <button
+            className="icon-button"
+            disabled={isRefreshing}
+            onClick={onRefresh}
+            type="button"
+            aria-label="Actualizar recordatorios"
+          >
+            <RefreshCw className={isRefreshing ? 'is-spinning' : ''} size={20} />
+          </button>
+        </header>
+
+        {errorMessage ? (
+          <p className="feedback-message feedback-message--error driving-mode__feedback">
+            {errorMessage}
           </p>
-        </div>
+        ) : null}
+        {actionFeedback ? (
+          <p className="feedback-message feedback-message--error driving-mode__feedback">
+            {actionFeedback}
+          </p>
+        ) : null}
 
-        <button
-          className="icon-button"
-          disabled={isRefreshing}
-          onClick={onRefresh}
-          type="button"
-          aria-label="Actualizar recordatorios"
-        >
-          <RefreshCw className={isRefreshing ? 'is-spinning' : ''} size={20} />
-        </button>
-      </header>
-
-      {errorMessage ? (
-        <p className="feedback-message feedback-message--error driving-mode__feedback">
-          {errorMessage}
-        </p>
-      ) : null}
-      {actionFeedback ? (
-        <p className="feedback-message feedback-message--error driving-mode__feedback">
-          {actionFeedback}
-        </p>
-      ) : null}
-
-      {reminders.length > 0 ? (
-        <section className="driving-list" aria-label="Recordatorios pendientes para manejar">
-          {reminders.map((reminder) => (
-            <DrivingReminderRow
-              actionState={transitionStates[reminder.id]}
-              key={reminder.id}
-              onComplete={onComplete}
-              reminder={reminder}
-              todayKey={todayKey}
-            />
-          ))}
-        </section>
-      ) : (
-        <section className="driving-empty">
-          <h3>Sin pendientes para manejar</h3>
-          <p>Cuando tengas recordatorios vencidos, de hoy o proximos, van a aparecer aqui.</p>
-        </section>
-      )}
+        {reminders.length > 0 ? (
+          <section className="driving-list" aria-label="Recordatorios pendientes para manejar">
+            {reminders.map((reminder) => (
+              <DrivingReminderRow
+                actionState={transitionStates[reminder.id]}
+                key={reminder.id}
+                onComplete={onComplete}
+                reminder={reminder}
+                todayKey={todayKey}
+              />
+            ))}
+          </section>
+        ) : (
+          <section className="driving-empty">
+            <h3>Sin pendientes para manejar</h3>
+            <p>Cuando tengas recordatorios vencidos, de hoy o proximos, van a aparecer aqui.</p>
+          </section>
+        )}
+      </div>
     </div>
   )
 }

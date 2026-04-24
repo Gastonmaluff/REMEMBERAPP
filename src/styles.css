@@ -17,6 +17,7 @@
   --radius-card: 24px;
   --radius-pill: 999px;
   --shell-width: 460px;
+  --app-height: 100vh;
   color: var(--text);
   font-family: 'Manrope', 'Segoe UI', sans-serif;
   font-synthesis: none;
@@ -76,24 +77,42 @@ textarea::placeholder {
 }
 
 #root {
+  min-height: 100vh;
   min-height: 100svh;
+  min-height: 100dvh;
+  min-height: var(--app-height, 100dvh);
 }
 
 .app-shell {
+  min-height: 100vh;
   min-height: 100svh;
+  min-height: 100dvh;
+  min-height: var(--app-height, 100dvh);
   padding: 0;
 }
 
 .app-shell__frame {
   position: relative;
   width: min(100%, var(--shell-width));
+  min-height: 100vh;
   min-height: 100svh;
+  min-height: 100dvh;
+  min-height: var(--app-height, 100dvh);
+  height: 100vh;
   height: 100svh;
+  height: 100dvh;
+  height: var(--app-height, 100dvh);
   margin: 0 auto;
   overflow: hidden;
+  overscroll-behavior-y: none;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.85)),
     var(--background);
+}
+
+.app-shell__frame.is-overlay-open .app-shell__content {
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .app-shell__content {
@@ -1157,20 +1176,52 @@ textarea::placeholder {
   position: absolute;
   inset: 0;
   z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: auto;
+  isolation: isolate;
   background: rgba(247, 248, 251, 0.98);
+}
+
+.modal-layer > * {
+  flex: 1;
+  min-height: 0;
 }
 
 .modal-sheet {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
 }
 
 .driving-mode {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 18px 18px 22px;
+  min-height: 0;
+  padding: 18px 18px 0;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.driving-mode__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 0 calc(22px + env(safe-area-inset-bottom));
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+.driving-mode__scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .driving-header {
@@ -1214,14 +1265,7 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 0;
-  overflow-y: auto;
   padding-right: 2px;
-  scrollbar-width: none;
-}
-
-.driving-list::-webkit-scrollbar {
-  display: none;
 }
 
 .driving-row {
@@ -1759,8 +1803,8 @@ textarea::placeholder {
   }
 
   .app-shell__frame {
-    min-height: calc(100svh - 28px);
-    height: calc(100svh - 28px);
+    min-height: calc(var(--app-height, 100dvh) - 28px);
+    height: calc(var(--app-height, 100dvh) - 28px);
     border: 1px solid rgba(255, 255, 255, 0.9);
     border-radius: 36px;
     box-shadow: var(--shadow-soft);

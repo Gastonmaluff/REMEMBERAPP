@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import BottomNav from './BottomNav'
 
@@ -9,9 +10,25 @@ function AppShell({
   onOpenModal,
   onTabChange,
 }) {
+  useEffect(() => {
+    function syncViewportHeight() {
+      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`)
+    }
+
+    syncViewportHeight()
+    window.addEventListener('resize', syncViewportHeight)
+    window.addEventListener('orientationchange', syncViewportHeight)
+
+    return () => {
+      window.removeEventListener('resize', syncViewportHeight)
+      window.removeEventListener('orientationchange', syncViewportHeight)
+      document.documentElement.style.removeProperty('--app-height')
+    }
+  }, [])
+
   return (
     <div className="app-shell">
-      <div className="app-shell__frame">
+      <div className={`app-shell__frame ${isOverlayOpen ? 'is-overlay-open' : ''}`}>
         <div className="app-shell__content">{children}</div>
 
         <div className={`app-shell__dock ${isOverlayOpen ? 'is-hidden' : ''}`}>
