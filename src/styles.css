@@ -220,6 +220,136 @@ textarea::placeholder {
   gap: 10px;
 }
 
+.maria-portal {
+  --maria-primary: #e35d9b;
+  --maria-primary-dark: #c94e61;
+  --maria-primary-soft: #ffe7ef;
+  --maria-primary-lighter: #fff5f8;
+  --maria-primary-border: rgba(227, 93, 155, 0.24);
+  --maria-primary-border-strong: rgba(227, 93, 155, 0.34);
+  --maria-primary-text: #be4e75;
+  --maria-primary-shadow: 0 18px 32px rgba(227, 93, 155, 0.24);
+  --primary: var(--maria-primary);
+  --primary-dark: var(--maria-primary-dark);
+  --background: #fff8fa;
+  --shadow-button: var(--maria-primary-shadow);
+}
+
+.maria-portal .dashboard-header__eyebrow {
+  color: rgba(190, 78, 117, 0.82);
+}
+
+.maria-portal .app-shell__frame {
+  background:
+    radial-gradient(circle at top, rgba(227, 93, 155, 0.09), transparent 34%),
+    linear-gradient(180deg, rgba(255, 250, 251, 0.96), rgba(255, 245, 248, 0.92)),
+    var(--background);
+}
+
+.maria-portal .portal-header__subtitle {
+  color: #8a6a75;
+}
+
+.maria-portal .portal-card {
+  border: 1px solid rgba(227, 93, 155, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 246, 249, 0.94));
+  box-shadow: 0 18px 34px rgba(227, 93, 155, 0.06);
+}
+
+.maria-portal .portal-field span {
+  color: var(--maria-primary-text);
+}
+
+.maria-portal .portal-field input,
+.maria-portal .portal-field textarea {
+  border-color: rgba(227, 93, 155, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.maria-portal .portal-field input:focus,
+.maria-portal .portal-field textarea:focus {
+  border-color: var(--maria-primary-border-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 0 0 4px rgba(227, 93, 155, 0.12);
+}
+
+.maria-portal .primary-button {
+  background: linear-gradient(180deg, #f08aa1 0%, var(--maria-primary-dark) 100%);
+  box-shadow: var(--maria-primary-shadow);
+}
+
+.maria-portal .primary-button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.maria-portal .primary-button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.maria-portal .feedback-message--success {
+  color: var(--maria-primary-text);
+}
+
+.maria-portal .portal-section__header h2,
+.maria-portal .completed-section__title {
+  color: #9a415f;
+}
+
+.maria-portal .portal-section__count {
+  color: var(--maria-primary-text);
+  background: var(--maria-primary-soft);
+  box-shadow: inset 0 0 0 1px rgba(227, 93, 155, 0.12);
+}
+
+.maria-portal .completed-section__toggle svg {
+  color: var(--maria-primary-text);
+}
+
+.maria-portal .portal-section__hint,
+.maria-portal .completed-section__count {
+  color: #9e7180;
+}
+
+.maria-portal .empty-state {
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.maria-portal .empty-state__icon {
+  color: var(--maria-primary-text);
+  background: var(--maria-primary-soft);
+}
+
+.maria-portal .empty-state__button {
+  color: var(--maria-primary-text);
+  background: var(--maria-primary-soft);
+}
+
+.maria-portal .portal-status--overdue {
+  color: #b84867;
+  background: #ffe8ef;
+}
+
+.maria-portal .portal-status--today {
+  color: var(--maria-primary-text);
+  background: var(--maria-primary-soft);
+}
+
+.maria-portal .portal-status--upcoming,
+.maria-portal .portal-status--completed {
+  color: #9f6075;
+  background: var(--maria-primary-lighter);
+}
+
+.maria-portal .portal-reminder {
+  border-color: rgba(227, 93, 155, 0.12);
+  background: linear-gradient(180deg, rgba(255, 248, 250, 0.98), rgba(255, 255, 255, 0.98));
+}
+
+.maria-portal .portal-reminder--skeleton {
+  background: rgba(255, 255, 255, 0.94);
+}
+
 .portal-screen {
   display: flex;
   flex-direction: column;

@@ -174,7 +174,7 @@ function MariaPortalView() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell maria-portal">
       <div className="app-shell__frame">
         <div className="app-shell__content portal-screen">
           <header className="portal-header">
