@@ -444,6 +444,11 @@ textarea::placeholder {
   letter-spacing: -0.04em;
 }
 
+.feedback-stack {
+  display: grid;
+  gap: 6px;
+}
+
 .reminder-list {
   display: flex;
   flex-direction: column;
@@ -451,6 +456,8 @@ textarea::placeholder {
 }
 
 .reminder-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -464,8 +471,42 @@ textarea::placeholder {
     opacity 180ms ease;
 }
 
-.reminder-card.is-completed {
+.reminder-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(34, 160, 107, 0.12), rgba(47, 128, 237, 0.08));
+}
+
+.reminder-card.is-completed-view {
+  background: rgba(255, 255, 255, 0.88);
   opacity: 0.72;
+}
+
+.reminder-card.is-completed-view .reminder-card__meta {
+  opacity: 0.78;
+}
+
+.reminder-card.is-completing,
+.driving-row.is-completing {
+  pointer-events: none;
+  animation: reminder-complete-exit 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.reminder-card.is-restoring {
+  pointer-events: none;
+  animation: reminder-restore-exit 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.reminder-card.is-completing::after,
+.driving-row.is-completing::after {
+  animation: reminder-flash 280ms ease-out forwards;
+}
+
+.reminder-card.is-restoring::after {
+  animation: reminder-restore-flash 240ms ease-out forwards;
 }
 
 .reminder-card__icon {
@@ -485,10 +526,38 @@ textarea::placeholder {
   flex: 1;
 }
 
-.reminder-card__body h3 {
+.reminder-card__title {
+  position: relative;
+  display: inline-block;
   margin: 0 0 10px;
   font-size: 1.18rem;
   letter-spacing: -0.03em;
+}
+
+.reminder-card__title::after,
+.driving-row__title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 54%;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition:
+    transform 250ms ease 90ms,
+    opacity 250ms ease 90ms;
+}
+
+.reminder-card.is-completed-view .reminder-card__title::after,
+.reminder-card.is-completing .reminder-card__title::after,
+.reminder-card.is-restoring .reminder-card__title::after,
+.driving-row.is-completing .driving-row__title::after {
+  opacity: 0.34;
+  transform: scaleX(1);
 }
 
 .reminder-card__meta {
@@ -526,11 +595,100 @@ textarea::placeholder {
   color: #fff;
   background: #fff;
   flex-shrink: 0;
+  transition:
+    transform 150ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease;
 }
 
 .checkbox-button.is-checked {
   border-color: var(--primary);
   background: var(--primary);
+}
+
+.checkbox-button.is-readonly {
+  cursor: default;
+}
+
+.checkbox-button:disabled,
+.restore-button:disabled {
+  cursor: default;
+}
+
+.reminder-card.is-completing .checkbox-button,
+.driving-row.is-completing .checkbox-button {
+  animation: checkbox-pop 150ms ease-out;
+  box-shadow: 0 0 0 10px rgba(47, 128, 237, 0.12);
+}
+
+.reminder-card__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.restore-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  color: #6f788b;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.completed-section {
+  margin-top: 18px;
+  padding: 12px 14px 14px;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.03);
+}
+
+.completed-section__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 2px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.completed-section__toggle svg {
+  color: var(--text-muted);
+  transition: transform 180ms ease;
+}
+
+.completed-section__toggle svg.is-open {
+  transform: rotate(180deg);
+}
+
+.completed-section__title {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.completed-section__count {
+  color: var(--text-muted);
+}
+
+.completed-section__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 .reminder-card--skeleton {
@@ -684,14 +842,26 @@ textarea::placeholder {
 }
 
 .driving-row {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
+  gap: 14px;
   min-height: 80px;
   padding: 14px 16px;
   border: 1px solid rgba(15, 23, 42, 0.05);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+}
+
+.driving-row::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(34, 160, 107, 0.12), rgba(47, 128, 237, 0.08));
 }
 
 .driving-row--overdue {
@@ -705,7 +875,7 @@ textarea::placeholder {
 
 .driving-row__main {
   min-width: 0;
-  width: 100%;
+  flex: 1;
 }
 
 .driving-row__title-line {
@@ -715,7 +885,8 @@ textarea::placeholder {
   gap: 12px;
 }
 
-.driving-row__title-line h3 {
+.driving-row__title {
+  position: relative;
   margin: 0;
   font-size: 1.08rem;
   line-height: 1.25;
@@ -769,6 +940,13 @@ textarea::placeholder {
 .driving-status--upcoming {
   color: #22a06b;
   background: #ebfbf3;
+}
+
+.checkbox-button--driving {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  border-color: rgba(15, 23, 42, 0.16);
 }
 
 .driving-empty {
@@ -1103,6 +1281,77 @@ textarea::placeholder {
 @keyframes spin {
   100% {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes checkbox-pop {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.12);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes reminder-flash {
+  0% {
+    opacity: 0;
+  }
+
+  35% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes reminder-restore-flash {
+  0% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 0.92;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes reminder-complete-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  58% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+}
+
+@keyframes reminder-restore-exit {
+  0% {
+    opacity: 0.72;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
   }
 }
 

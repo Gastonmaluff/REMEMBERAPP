@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import {
   ArrowLeft,
   CalendarDays,
+  Check,
   Clock3,
   RefreshCw,
 } from 'lucide-react'
@@ -15,16 +16,20 @@ import {
 
 const REFRESH_INTERVAL_MS = 7 * 60 * 1000
 
-function DrivingReminderRow({ reminder, todayKey }) {
+function DrivingReminderRow({ actionState, onComplete, reminder, todayKey }) {
   const categoryMeta = getCategoryMeta(reminder.category)
   const priorityMeta = getPriorityMeta(reminder.priority)
   const bucket = getDrivingBucket(reminder, todayKey)
+  const isCompleting = actionState?.action === 'completing'
+  const isBusy = Boolean(actionState)
 
   return (
-    <article className={`driving-row driving-row--${bucket}`}>
+    <article
+      className={`driving-row driving-row--${bucket} ${isCompleting ? 'is-completing' : ''}`}
+    >
       <div className="driving-row__main">
         <div className="driving-row__title-line">
-          <h3>{reminder.title}</h3>
+          <h3 className="driving-row__title">{reminder.title}</h3>
           <span className={`driving-status driving-status--${bucket}`}>
             {getDrivingBucketLabel(bucket)}
           </span>
@@ -59,17 +64,30 @@ function DrivingReminderRow({ reminder, todayKey }) {
           </span>
         </div>
       </div>
+
+      <button
+        aria-label="Marcar como cumplido"
+        className={`checkbox-button checkbox-button--driving ${isCompleting ? 'is-checked' : ''}`}
+        disabled={isBusy}
+        onClick={() => onComplete(reminder)}
+        type="button"
+      >
+        {isCompleting ? <Check size={22} /> : null}
+      </button>
     </article>
   )
 }
 
 function DrivingModeView({
+  actionFeedback,
   errorMessage,
   isRefreshing,
   lastUpdatedAt,
   onClose,
+  onComplete,
   onRefresh,
   reminders,
+  transitionStates,
   todayKey,
 }) {
   useEffect(() => {
@@ -117,11 +135,22 @@ function DrivingModeView({
           {errorMessage}
         </p>
       ) : null}
+      {actionFeedback ? (
+        <p className="feedback-message feedback-message--error driving-mode__feedback">
+          {actionFeedback}
+        </p>
+      ) : null}
 
       {reminders.length > 0 ? (
         <section className="driving-list" aria-label="Recordatorios pendientes para manejar">
           {reminders.map((reminder) => (
-            <DrivingReminderRow key={reminder.id} reminder={reminder} todayKey={todayKey} />
+            <DrivingReminderRow
+              actionState={transitionStates[reminder.id]}
+              key={reminder.id}
+              onComplete={onComplete}
+              reminder={reminder}
+              todayKey={todayKey}
+            />
           ))}
         </section>
       ) : (

@@ -149,9 +149,13 @@ export function getDrivingBucketLabel(bucket) {
   return labels[bucket] ?? 'Pendiente'
 }
 
-export function sortReminders(reminders) {
+export function sortReminders(
+  reminders,
+  getCompletedState = (reminder) => Boolean(reminder.completed),
+) {
   return [...reminders].sort((left, right) => {
-    const completedOrder = Number(Boolean(left.completed)) - Number(Boolean(right.completed))
+    const completedOrder =
+      Number(getCompletedState(left)) - Number(getCompletedState(right))
 
     if (completedOrder !== 0) {
       return completedOrder
@@ -168,7 +172,11 @@ export function sortReminders(reminders) {
   })
 }
 
-export function sortDrivingReminders(reminders, todayKey = getTodayKey()) {
+export function sortDrivingReminders(
+  reminders,
+  todayKey = getTodayKey(),
+  getCompletedState = (reminder) => Boolean(reminder.completed),
+) {
   const bucketWeight = {
     overdue: 0,
     today: 1,
@@ -176,7 +184,7 @@ export function sortDrivingReminders(reminders, todayKey = getTodayKey()) {
   }
 
   return [...reminders]
-    .filter((reminder) => !reminder.completed)
+    .filter((reminder) => !getCompletedState(reminder))
     .sort((left, right) => {
       const leftBucket = getDrivingBucket(left, todayKey)
       const rightBucket = getDrivingBucket(right, todayKey)

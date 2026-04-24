@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Bell,
   CheckCircle2,
+  ChevronDown,
   CircleDot,
   Plus,
   Search,
@@ -30,6 +31,26 @@ import {
   sortReminders,
 } from './reminderUtils'
 
+const REMINDER_TRANSITION_MS = 620
+
+function wait(duration) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, duration)
+  })
+}
+
+function getReminderUiCompleted(reminder, transitionState) {
+  if (transitionState?.action === 'completing') {
+    return false
+  }
+
+  if (transitionState?.action === 'restoring') {
+    return true
+  }
+
+  return reminder.completed === true
+}
+
 function App() {
   const [reminders, setReminders] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -44,7 +65,11 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDrivingRefreshRunning, setIsDrivingRefreshRunning] = useState(false)
   const [drivingError, setDrivingError] = useState('')
+  const [drivingActionFeedback, setDrivingActionFeedback] = useState('')
+  const [normalActionFeedback, setNormalActionFeedback] = useState('')
   const [lastDrivingRefreshAt, setLastDrivingRefreshAt] = useState(null)
+  const [isCompletedSectionOpen, setIsCompletedSectionOpen] = useState(false)
+  const [reminderTransitions, setReminderTransitions] = useState({})
 
   useEffect(() => {
     const unsubscribe = subscribeToReminders(
@@ -65,8 +90,17 @@ function App() {
   }, [])
 
   const todayKey = getTodayKey()
-  const todaysReminders = reminders.filter((reminder) => reminder.date === todayKey)
-  const completedToday = todaysReminders.filter((reminder) => reminder.completed).length
+
+  const getCompletionState = useCallback(
+    (reminder) => getReminderUiCompleted(reminder, reminderTransitions[reminder.id]),
+    [reminderTransitions],
+  )
+
+  const todaysReminders = useMemo(
+    () => reminders.filter((reminder) => reminder.date === todayKey),
+    [reminders, todayKey],
+  )
+  const completedToday = todaysReminders.filter(getCompletionState).length
   const totalToday = todaysReminders.length
   const pendingToday = totalToday - completedToday
   const progress = getProgressValue(completedToday, totalToday)
@@ -76,33 +110,48 @@ function App() {
       ? 'Hoy tienes 1 pendiente'
       : `Hoy tienes ${pendingToday} pendientes`
 
-  const filteredReminders = sortReminders(
-    reminders
-      .filter((reminder) => {
-        if (activeFilter === 'today') {
-          return reminder.date === todayKey
-        }
+  const visibleReminders = useMemo(
+    () =>
+      sortReminders(
+        reminders
+          .filter((reminder) => {
+            if (activeFilter === 'today') {
+              return reminder.date === todayKey
+            }
 
-        if (activeFilter === 'upcoming') {
-          return reminder.date > todayKey
-        }
+            if (activeFilter === 'upcoming') {
+              return reminder.date > todayKey
+            }
 
-        if (activeFilter === 'work') {
-          return reminder.category === 'Trabajo'
-        }
+            if (activeFilter === 'work') {
+              return reminder.category === 'Trabajo'
+            }
 
-        if (activeFilter === 'personal') {
-          return reminder.category === 'Personal'
-        }
+            if (activeFilter === 'personal') {
+              return reminder.category === 'Personal'
+            }
 
-        return true
-      })
-      .filter((reminder) => matchesSearch(reminder, searchTerm)),
+            return true
+          })
+          .filter((reminder) => matchesSearch(reminder, searchTerm)),
+        getCompletionState,
+      ),
+    [activeFilter, getCompletionState, reminders, searchTerm, todayKey],
+  )
+
+  const pendingReminders = useMemo(
+    () => visibleReminders.filter((reminder) => !getCompletionState(reminder)),
+    [getCompletionState, visibleReminders],
+  )
+
+  const completedReminders = useMemo(
+    () => visibleReminders.filter((reminder) => getCompletionState(reminder)),
+    [getCompletionState, visibleReminders],
   )
 
   const drivingReminders = useMemo(
-    () => sortDrivingReminders(reminders, todayKey),
-    [reminders, todayKey],
+    () => sortDrivingReminders(reminders, todayKey, getCompletionState),
+    [getCompletionState, reminders, todayKey],
   )
 
   const stats = [
@@ -132,8 +181,21 @@ function App() {
     },
   ]
 
+  const clearReminderTransition = useCallback((reminderId) => {
+    setReminderTransitions((current) => {
+      if (!current[reminderId]) {
+        return current
+      }
+
+      const next = { ...current }
+      delete next[reminderId]
+      return next
+    })
+  }, [])
+
   const refreshDrivingMode = useCallback(async () => {
     setDrivingError('')
+    setDrivingActionFeedback('')
     setIsDrivingRefreshRunning(true)
 
     try {
@@ -151,6 +213,7 @@ function App() {
   function openReminderModal() {
     setSaveError('')
     setSaveSucceeded(false)
+    setNormalActionFeedback('')
     setIsModalOpen(true)
   }
 
@@ -163,12 +226,14 @@ function App() {
 
   function openDrivingMode() {
     setDrivingError('')
+    setDrivingActionFeedback('')
     setIsDrivingModeOpen(true)
   }
 
   function closeDrivingMode() {
     setIsDrivingModeOpen(false)
     setDrivingError('')
+    setDrivingActionFeedback('')
     setIsDrivingRefreshRunning(false)
   }
 
@@ -189,6 +254,7 @@ function App() {
         ]),
       )
       setErrorMessage('')
+      setNormalActionFeedback('')
       setSearchTerm('')
       setActiveTab('home')
       setActiveFilter(createdReminder.date > todayKey ? 'upcoming' : 'today')
@@ -200,34 +266,101 @@ function App() {
     }
 
     if (createdReminder) {
-      await new Promise((resolve) => {
-        window.setTimeout(resolve, 600)
-      })
+      await wait(600)
       closeReminderModal()
     }
   }
 
-  async function handleToggleReminder(reminderId, completed) {
-    try {
-      await toggleReminderCompleted(reminderId, completed)
-      setReminders((current) =>
-        sortReminders(
-          current.map((reminder) =>
-            reminder.id === reminderId
-              ? {
-                  ...reminder,
-                  completed,
-                  updatedAt: Date.now(),
-                }
-              : reminder,
+  const handleReminderCompletionChange = useCallback(
+    async (reminder, nextCompleted, source = 'normal') => {
+      if (!reminder?.id || reminderTransitions[reminder.id]) {
+        return
+      }
+
+      const action = nextCompleted ? 'completing' : 'restoring'
+      const setScopedFeedback =
+        source === 'driving' ? setDrivingActionFeedback : setNormalActionFeedback
+
+      setScopedFeedback('')
+
+      if (nextCompleted) {
+        console.info('Completing reminder:', reminder.id)
+        setIsCompletedSectionOpen(false)
+      } else {
+        console.info('Restoring reminder:', reminder.id)
+      }
+
+      setReminderTransitions((current) => ({
+        ...current,
+        [reminder.id]: { action },
+      }))
+
+      try {
+        await toggleReminderCompleted(reminder.id, nextCompleted)
+        await wait(REMINDER_TRANSITION_MS)
+
+        setReminders((current) =>
+          sortReminders(
+            current.map((item) =>
+              item.id === reminder.id
+                ? {
+                    ...item,
+                    completed: nextCompleted,
+                    updatedAt: Date.now(),
+                  }
+                : item,
+            ),
           ),
-        ),
-      )
-    } catch (error) {
-      console.error('Toggle reminder failed:', error)
-      setErrorMessage('No pudimos actualizar el estado del recordatorio.')
-    }
-  }
+        )
+
+        if (nextCompleted) {
+          console.info('Reminder completed:', reminder.id)
+        } else {
+          console.info('Reminder restored:', reminder.id)
+        }
+
+        if (source === 'driving') {
+          setLastDrivingRefreshAt(new Date())
+        }
+      } catch (error) {
+        if (nextCompleted) {
+          console.error('Error completing reminder:', error)
+          setScopedFeedback('No se pudo marcar como cumplido.')
+        } else {
+          console.error('Error restoring reminder:', error)
+          setScopedFeedback('No se pudo devolver el recordatorio.')
+        }
+      } finally {
+        clearReminderTransition(reminder.id)
+      }
+    },
+    [clearReminderTransition, reminderTransitions],
+  )
+
+  const handleCompleteReminder = useCallback(
+    (reminder) => handleReminderCompletionChange(reminder, true, 'normal'),
+    [handleReminderCompletionChange],
+  )
+
+  const handleRestoreReminder = useCallback(
+    (reminder) => handleReminderCompletionChange(reminder, false, 'normal'),
+    [handleReminderCompletionChange],
+  )
+
+  const handleCompleteReminderFromDriving = useCallback(
+    (reminder) => handleReminderCompletionChange(reminder, true, 'driving'),
+    [handleReminderCompletionChange],
+  )
+
+  const hasCompletedReminders = completedReminders.length > 0
+  const hasPendingReminders = pendingReminders.length > 0
+  const isCompletedSectionVisible = hasCompletedReminders && isCompletedSectionOpen
+  const emptyStateTitle = hasCompletedReminders
+    ? 'No hay pendientes en esta vista'
+    : 'No hay recordatorios para esta vista'
+  const emptyStateBody = hasCompletedReminders
+    ? 'Los recordatorios cumplidos quedaron agrupados mas abajo para mantener limpia tu lista principal.'
+    : 'Crea uno nuevo con fecha y hora desde el boton azul para empezar a llenar tu agenda.'
 
   const overlayContent = isModalOpen ? (
     <NewReminderModal
@@ -239,13 +372,16 @@ function App() {
     />
   ) : isDrivingModeOpen ? (
     <DrivingModeView
+      actionFeedback={drivingActionFeedback}
       errorMessage={drivingError}
       isRefreshing={isDrivingRefreshRunning}
       lastUpdatedAt={lastDrivingRefreshAt}
       onClose={closeDrivingMode}
+      onComplete={handleCompleteReminderFromDriving}
       onRefresh={refreshDrivingMode}
       reminders={drivingReminders}
       todayKey={todayKey}
+      transitionStates={reminderTransitions}
     />
   ) : null
 
@@ -274,7 +410,12 @@ function App() {
           >
             <Bell size={21} />
           </button>
-          <button className="icon-button" type="button" aria-label="Abrir modo manejo" onClick={openDrivingMode}>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Abrir modo manejo"
+            onClick={openDrivingMode}
+          >
             <ShipWheel size={21} />
           </button>
         </div>
@@ -305,9 +446,17 @@ function App() {
       <section className="list-section" aria-labelledby="reminders-section-title">
         <div className="list-section__header">
           <h2 id="reminders-section-title">{getSectionTitle(activeFilter)}</h2>
-          {errorMessage ? (
-            <p className="feedback-message feedback-message--error">{errorMessage}</p>
-          ) : null}
+
+          <div className="feedback-stack">
+            {errorMessage ? (
+              <p className="feedback-message feedback-message--error">{errorMessage}</p>
+            ) : null}
+            {normalActionFeedback ? (
+              <p className="feedback-message feedback-message--error">
+                {normalActionFeedback}
+              </p>
+            ) : null}
+          </div>
         </div>
 
         {isLoading ? (
@@ -323,26 +472,29 @@ function App() {
               </article>
             ))}
           </div>
-        ) : filteredReminders.length > 0 ? (
+        ) : null}
+
+        {!isLoading && hasPendingReminders ? (
           <div className="reminder-list">
-            {filteredReminders.map((reminder) => (
+            {pendingReminders.map((reminder) => (
               <ReminderCard
+                actionState={reminderTransitions[reminder.id]}
                 key={reminder.id}
-                onToggle={handleToggleReminder}
+                onComplete={handleCompleteReminder}
                 reminder={reminder}
                 todayKey={todayKey}
               />
             ))}
           </div>
-        ) : (
+        ) : null}
+
+        {!isLoading && !hasPendingReminders ? (
           <article className="empty-state">
             <div className="empty-state__icon">
               <Plus size={22} />
             </div>
-            <h3>No hay recordatorios para esta vista</h3>
-            <p>
-              Crea uno nuevo con fecha y hora desde el boton azul para empezar a llenar tu agenda.
-            </p>
+            <h3>{emptyStateTitle}</h3>
+            <p>{emptyStateBody}</p>
             <button
               className="empty-state__button"
               type="button"
@@ -351,7 +503,43 @@ function App() {
               Crear recordatorio
             </button>
           </article>
-        )}
+        ) : null}
+
+        {!isLoading && hasCompletedReminders ? (
+          <section className="completed-section" aria-labelledby="completed-section-title">
+            <button
+              aria-controls="completed-section-content"
+              aria-expanded={isCompletedSectionVisible}
+              className="completed-section__toggle"
+              id="completed-section-title"
+              onClick={() => setIsCompletedSectionOpen((current) => !current)}
+              type="button"
+            >
+              <span className="completed-section__title">
+                Cumplidos <span className="completed-section__count">· {completedReminders.length}</span>
+              </span>
+              <ChevronDown
+                className={isCompletedSectionVisible ? 'is-open' : ''}
+                size={18}
+              />
+            </button>
+
+            {isCompletedSectionVisible ? (
+              <div className="completed-section__list" id="completed-section-content">
+                {completedReminders.map((reminder) => (
+                  <ReminderCard
+                    actionState={reminderTransitions[reminder.id]}
+                    isCompletedView
+                    key={reminder.id}
+                    onRestore={handleRestoreReminder}
+                    reminder={reminder}
+                    todayKey={todayKey}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
       </section>
     </AppShell>
   )
