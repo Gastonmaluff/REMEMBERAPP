@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Bell,
   CheckCircle2,
   CircleDot,
-  Ellipsis,
   Plus,
   Search,
+  ShipWheel,
   SlidersHorizontal,
 } from 'lucide-react'
 import AppShell from './components/AppShell'
+import DrivingModeView from './components/DrivingModeView'
 import FilterChips from './components/FilterChips'
 import NewReminderModal from './components/NewReminderModal'
 import ReminderCard from './components/ReminderCard'
@@ -16,6 +17,7 @@ import ReminderStats from './components/ReminderStats'
 import { FILTER_OPTIONS } from './reminderOptions'
 import {
   createReminder,
+  fetchReminders,
   subscribeToReminders,
   toggleReminderCompleted,
 } from './services/remindersService'
@@ -24,6 +26,7 @@ import {
   getSectionTitle,
   getTodayKey,
   matchesSearch,
+  sortDrivingReminders,
   sortReminders,
 } from './reminderUtils'
 
@@ -37,7 +40,11 @@ function App() {
   const [activeFilter, setActiveFilter] = useState('today')
   const [activeTab, setActiveTab] = useState('home')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isDrivingModeOpen, setIsDrivingModeOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDrivingRefreshRunning, setIsDrivingRefreshRunning] = useState(false)
+  const [drivingError, setDrivingError] = useState('')
+  const [lastDrivingRefreshAt, setLastDrivingRefreshAt] = useState(null)
 
   useEffect(() => {
     const unsubscribe = subscribeToReminders(
@@ -93,6 +100,11 @@ function App() {
       .filter((reminder) => matchesSearch(reminder, searchTerm)),
   )
 
+  const drivingReminders = useMemo(
+    () => sortDrivingReminders(reminders, todayKey),
+    [reminders, todayKey],
+  )
+
   const stats = [
     {
       id: 'completed',
@@ -120,6 +132,22 @@ function App() {
     },
   ]
 
+  const refreshDrivingMode = useCallback(async () => {
+    setDrivingError('')
+    setIsDrivingRefreshRunning(true)
+
+    try {
+      const items = await fetchReminders()
+      setReminders(sortReminders(items))
+      setLastDrivingRefreshAt(new Date())
+    } catch (error) {
+      console.error('Driving mode refresh failed:', error)
+      setDrivingError('No se pudo actualizar el modo manejo.')
+    } finally {
+      setIsDrivingRefreshRunning(false)
+    }
+  }, [])
+
   function openReminderModal() {
     setSaveError('')
     setSaveSucceeded(false)
@@ -131,6 +159,17 @@ function App() {
     setSaveError('')
     setSaveSucceeded(false)
     setIsSubmitting(false)
+  }
+
+  function openDrivingMode() {
+    setDrivingError('')
+    setIsDrivingModeOpen(true)
+  }
+
+  function closeDrivingMode() {
+    setIsDrivingModeOpen(false)
+    setDrivingError('')
+    setIsDrivingRefreshRunning(false)
   }
 
   async function handleCreateReminder(formValues) {
@@ -184,26 +223,39 @@ function App() {
           ),
         ),
       )
-    } catch {
+    } catch (error) {
+      console.error('Toggle reminder failed:', error)
       setErrorMessage('No pudimos actualizar el estado del recordatorio.')
     }
   }
 
+  const overlayContent = isModalOpen ? (
+    <NewReminderModal
+      errorMessage={saveError}
+      isSubmitting={isSubmitting}
+      onClose={closeReminderModal}
+      onSubmit={handleCreateReminder}
+      saveSucceeded={saveSucceeded}
+    />
+  ) : isDrivingModeOpen ? (
+    <DrivingModeView
+      errorMessage={drivingError}
+      isRefreshing={isDrivingRefreshRunning}
+      lastUpdatedAt={lastDrivingRefreshAt}
+      onClose={closeDrivingMode}
+      onRefresh={refreshDrivingMode}
+      reminders={drivingReminders}
+      todayKey={todayKey}
+    />
+  ) : null
+
   return (
     <AppShell
       activeTab={activeTab}
-      isModalOpen={isModalOpen}
+      isOverlayOpen={Boolean(overlayContent)}
       onOpenModal={openReminderModal}
       onTabChange={setActiveTab}
-      modalContent={
-        <NewReminderModal
-          errorMessage={saveError}
-          isSubmitting={isSubmitting}
-          onClose={closeReminderModal}
-          onSubmit={handleCreateReminder}
-          saveSucceeded={saveSucceeded}
-        />
-      }
+      overlayContent={overlayContent}
     >
       <header className="dashboard-header">
         <div>
@@ -222,8 +274,8 @@ function App() {
           >
             <Bell size={21} />
           </button>
-          <button className="icon-button" type="button" aria-label="Mas opciones">
-            <Ellipsis size={21} />
+          <button className="icon-button" type="button" aria-label="Abrir modo manejo" onClick={openDrivingMode}>
+            <ShipWheel size={21} />
           </button>
         </div>
       </header>

@@ -4,8 +4,8 @@ import BottomNav from './BottomNav'
 function AppShell({
   activeTab,
   children,
-  isModalOpen,
-  modalContent,
+  isOverlayOpen,
+  overlayContent,
   onOpenModal,
   onTabChange,
 }) {
@@ -14,14 +14,14 @@ function AppShell({
       <div className="app-shell__frame">
         <div className="app-shell__content">{children}</div>
 
-        <div className={`app-shell__dock ${isModalOpen ? 'is-hidden' : ''}`}>
+        <div className={`app-shell__dock ${isOverlayOpen ? 'is-hidden' : ''}`}>
           <button className="fab-button" onClick={onOpenModal} type="button" aria-label="Nuevo recordatorio">
             <Plus size={28} />
           </button>
           <BottomNav activeTab={activeTab} onChange={onTabChange} />
         </div>
 
-        {isModalOpen ? <div className="modal-layer">{modalContent}</div> : null}
+        {isOverlayOpen ? <div className="modal-layer">{overlayContent}</div> : null}
       </div>
     </div>
   )

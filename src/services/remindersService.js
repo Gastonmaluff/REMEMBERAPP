@@ -3,6 +3,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDocs,
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore/lite'
@@ -113,6 +114,11 @@ export function subscribeToReminders(onData, onError) {
     },
     onError,
   )
+}
+
+export async function fetchReminders() {
+  const snapshot = await withTimeout(getDocs(remindersWriteCollection))
+  return snapshot.docs.map(normalizeReminder)
 }
 
 export async function createReminder(reminder) {
