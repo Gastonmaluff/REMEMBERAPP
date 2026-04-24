@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { CalendarDays, Check, Clock3, RotateCcw } from 'lucide-react'
 import { getCategoryMeta, getReminderVisual, renderReminderIcon } from '../reminderOptions'
+import CompletionCelebration from './CompletionCelebration'
 import {
   isMariaReminder,
   logMariaReminderRender,
@@ -20,6 +21,8 @@ function ReminderCard({
   const visual = getReminderVisual(reminder)
   const showDate = reminder.date && reminder.date !== todayKey
   const isCompleting = actionState?.action === 'completing'
+  const isCelebrating = isCompleting && actionState?.phase === 'celebrating'
+  const isExiting = isCompleting && actionState?.phase === 'exiting'
   const isRestoring = actionState?.action === 'restoring'
   const isBusy = Boolean(actionState)
   const showCheckedState = isCompletedView || isCompleting
@@ -29,6 +32,8 @@ function ReminderCard({
     showMariaSource ? 'is-maria' : '',
     isCompletedView ? 'is-completed-view' : '',
     isCompleting ? 'is-completing' : '',
+    isCelebrating ? 'is-celebrating' : '',
+    isExiting ? 'is-exiting' : '',
     isRestoring ? 'is-restoring' : '',
   ]
     .filter(Boolean)
@@ -42,6 +47,8 @@ function ReminderCard({
 
   return (
     <article className={cardClassName}>
+      {isCompleting ? <CompletionCelebration isMaria={showMariaSource} /> : null}
+
       <div
         className="reminder-card__icon"
         style={{

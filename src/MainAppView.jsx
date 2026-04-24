@@ -15,6 +15,7 @@ import FilterChips from './components/FilterChips'
 import NewReminderModal from './components/NewReminderModal'
 import ReminderCard from './components/ReminderCard'
 import ReminderStats from './components/ReminderStats'
+import { playCompletionSound } from './completionEffects'
 import { FILTER_OPTIONS } from './reminderOptions'
 import {
   createReminder,
@@ -31,7 +32,9 @@ import {
   sortReminders,
 } from './reminderUtils'
 
-const REMINDER_TRANSITION_MS = 620
+const REMINDER_COMPLETE_CELEBRATION_MS = 900
+const REMINDER_COMPLETE_EXIT_MS = 250
+const REMINDER_RESTORE_TRANSITION_MS = 420
 
 function wait(duration) {
   return new Promise((resolve) => {
@@ -286,18 +289,41 @@ function MainAppView() {
       if (nextCompleted) {
         console.info('Completing reminder:', reminder.id)
         setIsCompletedSectionOpen(false)
+        void playCompletionSound()
       } else {
         console.info('Restoring reminder:', reminder.id)
       }
 
       setReminderTransitions((current) => ({
         ...current,
-        [reminder.id]: { action },
+        [reminder.id]: nextCompleted
+          ? { action, phase: 'celebrating' }
+          : { action },
       }))
 
       try {
-        await toggleReminderCompleted(reminder.id, nextCompleted)
-        await wait(REMINDER_TRANSITION_MS)
+        if (nextCompleted) {
+          await Promise.all([
+            toggleReminderCompleted(reminder.id, nextCompleted),
+            wait(REMINDER_COMPLETE_CELEBRATION_MS),
+          ])
+
+          setReminderTransitions((current) => {
+            if (!current[reminder.id] || current[reminder.id].action !== 'completing') {
+              return current
+            }
+
+            return {
+              ...current,
+              [reminder.id]: { action: 'completing', phase: 'exiting' },
+            }
+          })
+
+          await wait(REMINDER_COMPLETE_EXIT_MS)
+        } else {
+          await toggleReminderCompleted(reminder.id, nextCompleted)
+          await wait(REMINDER_RESTORE_TRANSITION_MS)
+        }
 
         setReminders((current) =>
           sortReminders(

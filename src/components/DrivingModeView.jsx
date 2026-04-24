@@ -4,6 +4,7 @@ import {
   Check,
   RefreshCw,
 } from 'lucide-react'
+import CompletionCelebration from './CompletionCelebration'
 import { getCategoryMeta, getPriorityMeta } from '../reminderOptions'
 import {
   formatLastUpdated,
@@ -25,6 +26,8 @@ function DrivingReminderRow({ actionState, onComplete, reminder, todayKey }) {
   const bucket = getDrivingBucket(reminder, todayKey)
   const bucketLabel = getDrivingBucketLabel(bucket)
   const isCompleting = actionState?.action === 'completing'
+  const isCelebrating = isCompleting && actionState?.phase === 'celebrating'
+  const isExiting = isCompleting && actionState?.phase === 'exiting'
   const isBusy = Boolean(actionState)
   const isMariaSource = isMariaReminder(reminder)
 
@@ -36,8 +39,10 @@ function DrivingReminderRow({ actionState, onComplete, reminder, todayKey }) {
 
   return (
     <article
-      className={`driving-row driving-row--${bucket} ${isMariaSource ? 'is-maria' : ''} ${isCompleting ? 'is-completing' : ''}`}
+      className={`driving-row driving-row--${bucket} ${isMariaSource ? 'is-maria' : ''} ${isCompleting ? 'is-completing' : ''} ${isCelebrating ? 'is-celebrating' : ''} ${isExiting ? 'is-exiting' : ''}`}
     >
+      {isCompleting ? <CompletionCelebration compact isMaria={isMariaSource} /> : null}
+
       <div className="driving-row__content">
         <div className="driving-row__headline">
           {isMariaSource ? (
