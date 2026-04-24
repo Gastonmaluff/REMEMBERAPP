@@ -1,0 +1,136 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function reminderFields() {
+      return [
+        'title',
+        'notes',
+        'date',
+        'time',
+        'datetime',
+        'category',
+        'priority',
+        'repeat',
+        'alertMinutes',
+        'completed',
+        'icon',
+        'color',
+        'createdBy',
+        'assignedTo',
+        'source',
+        'createdAt',
+        'updatedAt',
+      ];
+    }
+
+    function coreReminderFields() {
+      return [
+        'title',
+        'notes',
+        'date',
+        'time',
+        'category',
+        'priority',
+        'repeat',
+        'alertMinutes',
+        'completed',
+        'icon',
+        'color',
+        'createdAt',
+        'updatedAt',
+      ];
+    }
+
+    function hasReminderShape(data) {
+      return data.keys().hasAll(coreReminderFields()) &&
+        data.keys().hasOnly(reminderFields());
+    }
+
+    function hasCompleteReminderShape(data) {
+      return data.keys().hasAll(reminderFields()) &&
+        data.keys().hasOnly(reminderFields());
+    }
+
+    function isAllowedCategory(value) {
+      return value in ['Trabajo', 'Personal', 'Casa'];
+    }
+
+    function isAllowedPriority(value) {
+      return value in ['Alta', 'Media', 'Baja'];
+    }
+
+    function isAllowedRepeat(value) {
+      return value in ['none', 'daily', 'weekly', 'monthly'];
+    }
+
+    function isAllowedIcon(value) {
+      return value in ['briefcase', 'file', 'gift', 'home', 'list', 'note', 'phone', 'user', 'users'];
+    }
+
+    function isAllowedString(value, minSize, maxSize) {
+      return value is string && value.size() >= minSize && value.size() <= maxSize;
+    }
+
+    function isOptionalString(value, maxSize) {
+      return value is string && value.size() <= maxSize;
+    }
+
+    function isValidReminder(data) {
+      return hasReminderShape(data) &&
+        isAllowedString(data.title, 1, 140) &&
+        isOptionalString(data.notes, 1000) &&
+        isAllowedString(data.date, 10, 10) &&
+        data.date.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+        isAllowedString(data.time, 5, 5) &&
+        data.time.matches('^\\d{2}:\\d{2}$') &&
+        (!('datetime' in data) || (
+          isAllowedString(data.datetime, 16, 16) &&
+          data.datetime.matches('^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$')
+        )) &&
+        isAllowedCategory(data.category) &&
+        isAllowedPriority(data.priority) &&
+        isAllowedRepeat(data.repeat) &&
+        data.alertMinutes is int &&
+        data.alertMinutes >= 0 &&
+        data.alertMinutes <= 10080 &&
+        data.completed is bool &&
+        isAllowedIcon(data.icon) &&
+        isAllowedString(data.color, 7, 7) &&
+        data.color.matches('^#[0-9A-Fa-f]{6}$') &&
+        (!('createdBy' in data) || (
+          data.createdBy is string &&
+          data.createdBy in ['', 'maria']
+        )) &&
+        (!('assignedTo' in data) || (
+          data.assignedTo is string &&
+          data.assignedTo in ['', 'gaston']
+        )) &&
+        (!('source' in data) || (
+          data.source is string &&
+          data.source in ['', 'maria_portal']
+        )) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isSafeReminderUpdate() {
+      return request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'completed',
+          'updatedAt',
+          'datetime',
+          'createdBy',
+          'assignedTo',
+          'source',
+        ]);
+    }
+
+    match /reminders/{reminderId} {
+      allow read: if true;
+      allow create: if hasCompleteReminderShape(request.resource.data) && isValidReminder(request.resource.data);
+      allow update: if isValidReminder(request.resource.data) && isSafeReminderUpdate();
+      allow delete: if false;
+    }
+  }
+}

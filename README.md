@@ -1,16 +1,91 @@
-# React + Vite
+# Rememberapp
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicacion de recordatorios hecha con React + Vite + Firebase/Firestore y publicada en GitHub Pages.
 
-Currently, two official plugins are available:
+## URLs
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- App principal: `https://gastonmaluff.github.io/REMEMBERAPP/`
+- Portal de Maria: `https://gastonmaluff.github.io/REMEMBERAPP/?view=maria&token=maria-gaston-2026`
 
-## React Compiler
+## Scripts
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- `npm run dev`: desarrollo local
+- `npm run build`: build de produccion
+- `npm run preview`: preview local del build
+- `npm run lint`: revision de ESLint
+- `npm run deploy`: publica el build en GitHub Pages
+- `npm run firebase:rules`: despliega reglas de Firestore
+- `npm run firebase:indexes`: despliega indices de Firestore
+- `npm run firebase:deploy`: despliega reglas e indices de Firestore
+- `npm run firebase:emulators`: levanta Firestore Emulator
 
-## Expanding the ESLint configuration
+## Firebase
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Proyecto configurado:
+
+- `rememberapp-f0a70`
+
+Archivos versionados en el repo:
+
+- `.firebaserc`: alias del proyecto por defecto
+- `firebase.json`: configuracion de Firestore y emuladores
+- `firestore.rules`: reglas de validacion para la coleccion `reminders`
+- `firestore.indexes.json`: indices versionados
+
+### Que protegen las reglas actuales
+
+- permiten leer recordatorios
+- permiten crear recordatorios solo con el shape esperado
+- permiten actualizar recordatorios solo para cambiar `completed` y `updatedAt`
+- bloquean deletes desde cliente
+- validan categorias, prioridades, fecha, hora, color e iconos permitidos
+
+Importante:
+
+- hoy no hay login real, asi que estas reglas protegen la estructura de datos pero no la identidad del usuario
+- el portal de Maria sigue usando un token simple por URL como filtro basico
+
+## Flujo esperado
+
+### App principal
+
+- Gaston ve todos los recordatorios
+- puede marcar pendientes como cumplidos
+- los recordatorios creados desde Maria se ven con badge y estilo especial
+
+### Portal de Maria
+
+- Maria crea recordatorios para Gaston
+- se guardan con:
+  - `createdBy: "maria"`
+  - `assignedTo: "gaston"`
+  - `source: "maria_portal"`
+  - `priority: "Alta"`
+- Maria ve pendientes y cumplidos de los recordatorios que ella creo
+
+## Verificacion manual recomendada antes de entregarla
+
+1. Abrir la app principal.
+2. Abrir el portal de Maria en otro navegador o dispositivo.
+3. Crear un recordatorio desde el portal.
+4. Confirmar que aparece en la app principal.
+5. Marcarlo como cumplido desde la app principal.
+6. Confirmar que aparece como cumplido en el portal de Maria.
+
+## Deploy
+
+### GitHub Pages
+
+```bash
+npm run deploy
+```
+
+### Firestore
+
+```bash
+npm run firebase:deploy
+```
+
+## Siguiente mejora recomendada
+
+Si mas adelante quieren privacidad real y no solo un link especial, el siguiente paso correcto es agregar Firebase Auth y endurecer `firestore.rules` por usuario o rol.
