@@ -1,9 +1,7 @@
 import { useEffect } from 'react'
 import {
   ArrowLeft,
-  CalendarDays,
   Check,
-  Clock3,
   RefreshCw,
 } from 'lucide-react'
 import { getCategoryMeta, getPriorityMeta } from '../reminderOptions'
@@ -25,6 +23,7 @@ function DrivingReminderRow({ actionState, onComplete, reminder, todayKey }) {
   const categoryMeta = getCategoryMeta(reminder.category)
   const priorityMeta = getPriorityMeta(reminder.priority)
   const bucket = getDrivingBucket(reminder, todayKey)
+  const bucketLabel = getDrivingBucketLabel(bucket)
   const isCompleting = actionState?.action === 'completing'
   const isBusy = Boolean(actionState)
   const isMariaSource = isMariaReminder(reminder)
@@ -39,36 +38,11 @@ function DrivingReminderRow({ actionState, onComplete, reminder, todayKey }) {
     <article
       className={`driving-row driving-row--${bucket} ${isMariaSource ? 'is-maria' : ''} ${isCompleting ? 'is-completing' : ''}`}
     >
-      <div className="driving-row__main">
-        {isMariaSource ? (
-          <span className="origin-pill origin-pill--driving">{MARIA_REMINDER_LABEL}</span>
-        ) : null}
-
-        <div className="driving-row__title-line">
-          <h3 className="driving-row__title">{reminder.title}</h3>
-          <span className={`driving-status driving-status--${bucket}`}>
-            {getDrivingBucketLabel(bucket)}
-          </span>
-        </div>
-
-        <div className="driving-row__meta">
-          <span className="driving-meta">
-            <CalendarDays size={14} />
-            {formatShortDate(reminder.date)}
-          </span>
-          <span className="driving-meta">
-            <Clock3 size={14} />
-            {reminder.time}
-          </span>
-          <span
-            className="driving-tag"
-            style={{
-              '--driving-tag-accent': categoryMeta.accent,
-              '--driving-tag-surface': categoryMeta.surface,
-            }}
-          >
-            {reminder.category}
-          </span>
+      <div className="driving-row__content">
+        <div className="driving-row__headline">
+          {isMariaSource ? (
+            <span className="origin-pill origin-pill--driving">{MARIA_REMINDER_LABEL}</span>
+          ) : null}
           <span
             className="driving-tag driving-tag--priority"
             style={{
@@ -77,6 +51,34 @@ function DrivingReminderRow({ actionState, onComplete, reminder, todayKey }) {
             }}
           >
             {reminder.priority}
+          </span>
+          <h3 className="driving-row__title" title={reminder.title}>
+            {reminder.title}
+          </h3>
+        </div>
+
+        <div className="driving-row__meta">
+          <span className="driving-meta">{formatShortDate(reminder.date)}</span>
+          <span className="driving-meta__separator" aria-hidden="true">
+            &middot;
+          </span>
+          <span className="driving-meta">{reminder.time}</span>
+          <span className="driving-meta__separator" aria-hidden="true">
+            &middot;
+          </span>
+          <span
+            className="driving-meta driving-meta--accent"
+            style={{
+              '--driving-meta-accent': categoryMeta.accent,
+            }}
+          >
+            {reminder.category}
+          </span>
+          <span className="driving-meta__separator" aria-hidden="true">
+            &middot;
+          </span>
+          <span className={`driving-status driving-status--${bucket}`}>
+            {bucketLabel}
           </span>
         </div>
       </div>
@@ -88,7 +90,7 @@ function DrivingReminderRow({ actionState, onComplete, reminder, todayKey }) {
         onClick={() => onComplete(reminder)}
         type="button"
       >
-        {isCompleting ? <Check size={22} /> : null}
+        {isCompleting ? <Check size={18} /> : null}
       </button>
     </article>
   )
