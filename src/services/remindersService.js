@@ -1,14 +1,18 @@
+import { collection as liveCollection, onSnapshot } from 'firebase/firestore'
 import {
   addDoc,
   collection,
   doc,
-  onSnapshot,
   serverTimestamp,
   updateDoc,
-} from 'firebase/firestore'
-import { db } from '../firebase'
+} from 'firebase/firestore/lite'
+import { db, liteDb } from '../firebase'
 
-const remindersCollection = collection(db, 'reminders')
+const REMINDERS_COLLECTION = 'reminders'
+const SAVE_TIMEOUT_MS = 10000
+
+const remindersCollection = liveCollection(db, REMINDERS_COLLECTION)
+const remindersWriteCollection = collection(liteDb, REMINDERS_COLLECTION)
 
 function normalizeReminder(snapshot) {
   const data = snapshot.data()
@@ -31,6 +35,76 @@ function normalizeReminder(snapshot) {
   }
 }
 
+function buildReminderPayload(reminder) {
+  const timestamp = Date.now()
+
+  return {
+    title: reminder.title.trim(),
+    notes: reminder.notes.trim(),
+    date: reminder.date,
+    time: reminder.time,
+    category: reminder.category,
+    priority: reminder.priority,
+    repeat: reminder.repeat,
+    alertMinutes: Number(reminder.alertMinutes),
+    completed: false,
+    icon: reminder.icon ?? 'file',
+    color: reminder.color ?? '#2F80ED',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }
+}
+
+function toFirestoreDocument(payload) {
+  return {
+    ...payload,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }
+}
+
+function createTimeoutError() {
+  const error = new Error('save-timeout')
+  error.code = 'deadline-exceeded'
+  return error
+}
+
+async function withTimeout(promise, timeoutMs = SAVE_TIMEOUT_MS) {
+  let timeoutId
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(createTimeoutError()), timeoutMs)
+      }),
+    ])
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+function toUserFacingError(error) {
+  const message = String(error?.message ?? '')
+
+  if (
+    error?.code === 'permission-denied' &&
+    message.includes('Cloud Firestore API has not been used')
+  ) {
+    return new Error(
+      'Firestore no esta habilitado en rememberapp-f0a70. Activalo en Firebase o Google Cloud y vuelve a intentar.',
+    )
+  }
+
+  if (error?.code === 'deadline-exceeded') {
+    return new Error(
+      'La conexion con Firestore tardo demasiado. Intenta nuevamente en unos segundos.',
+    )
+  }
+
+  return new Error('No se pudo guardar el recordatorio.')
+}
+
 export function subscribeToReminders(onData, onError) {
   return onSnapshot(
     remindersCollection,
@@ -42,22 +116,34 @@ export function subscribeToReminders(onData, onError) {
 }
 
 export async function createReminder(reminder) {
-  return addDoc(remindersCollection, {
-    ...reminder,
-    title: reminder.title.trim(),
-    notes: reminder.notes.trim(),
-    alertMinutes: Number(reminder.alertMinutes),
-    completed: false,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  })
+  const payload = buildReminderPayload(reminder)
+
+  console.info('Saving reminder payload:', payload)
+
+  try {
+    const docRef = await withTimeout(
+      addDoc(remindersWriteCollection, toFirestoreDocument(payload)),
+    )
+
+    console.info('Reminder saved with id:', docRef.id)
+
+    return {
+      id: docRef.id,
+      ...payload,
+    }
+  } catch (error) {
+    console.error('Error saving reminder:', error)
+    throw toUserFacingError(error)
+  }
 }
 
 export async function toggleReminderCompleted(reminderId, completed) {
-  const reminderRef = doc(db, 'reminders', reminderId)
+  const reminderRef = doc(liteDb, REMINDERS_COLLECTION, reminderId)
 
-  return updateDoc(reminderRef, {
-    completed,
-    updatedAt: serverTimestamp(),
-  })
+  return withTimeout(
+    updateDoc(reminderRef, {
+      completed,
+      updatedAt: serverTimestamp(),
+    }),
+  )
 }

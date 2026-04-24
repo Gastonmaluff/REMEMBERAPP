@@ -129,6 +129,7 @@ textarea::placeholder {
   position: absolute;
   left: 50%;
   bottom: 62px;
+  transform: translateX(-50%);
   z-index: 2;
   display: inline-flex;
   align-items: center;
@@ -911,6 +912,10 @@ textarea::placeholder {
 
 .feedback-message--error {
   color: #d73c45;
+}
+
+.feedback-message--success {
+  color: #1f9b67;
 }
 
 @keyframes shimmer {

@@ -32,6 +32,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [saveError, setSaveError] = useState('')
+  const [saveSucceeded, setSaveSucceeded] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('today')
   const [activeTab, setActiveTab] = useState('home')
@@ -45,10 +46,9 @@ function App() {
         setErrorMessage('')
         setIsLoading(false)
       },
-      (error) => {
-        console.error(error)
+      () => {
         setErrorMessage(
-          'No pudimos sincronizar con Firestore. Revisa permisos y la conexión de Firebase.',
+          'No pudimos sincronizar con Firestore. Revisa permisos y la conexion de Firebase.',
         )
         setIsLoading(false)
       },
@@ -120,28 +120,71 @@ function App() {
     },
   ]
 
+  function openReminderModal() {
+    setSaveError('')
+    setSaveSucceeded(false)
+    setIsModalOpen(true)
+  }
+
+  function closeReminderModal() {
+    setIsModalOpen(false)
+    setSaveError('')
+    setSaveSucceeded(false)
+    setIsSubmitting(false)
+  }
+
   async function handleCreateReminder(formValues) {
     setSaveError('')
+    setSaveSucceeded(false)
     setIsSubmitting(true)
 
+    let createdReminder = null
+
     try {
-      await createReminder(formValues)
-      setIsModalOpen(false)
-    } catch (error) {
-      console.error(error)
-      setSaveError(
-        'No pudimos crear el recordatorio. Verifica tu colección reminders y los permisos de Firestore.',
+      createdReminder = await createReminder(formValues)
+
+      setReminders((current) =>
+        sortReminders([
+          ...current.filter((reminder) => reminder.id !== createdReminder.id),
+          createdReminder,
+        ]),
       )
+      setErrorMessage('')
+      setSearchTerm('')
+      setActiveTab('home')
+      setActiveFilter(createdReminder.date > todayKey ? 'upcoming' : 'today')
+      setSaveSucceeded(true)
+    } catch (error) {
+      setSaveError(error.message || 'No se pudo guardar el recordatorio.')
     } finally {
       setIsSubmitting(false)
+    }
+
+    if (createdReminder) {
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 600)
+      })
+      closeReminderModal()
     }
   }
 
   async function handleToggleReminder(reminderId, completed) {
     try {
       await toggleReminderCompleted(reminderId, completed)
-    } catch (error) {
-      console.error(error)
+      setReminders((current) =>
+        sortReminders(
+          current.map((reminder) =>
+            reminder.id === reminderId
+              ? {
+                  ...reminder,
+                  completed,
+                  updatedAt: Date.now(),
+                }
+              : reminder,
+          ),
+        ),
+      )
+    } catch {
       setErrorMessage('No pudimos actualizar el estado del recordatorio.')
     }
   }
@@ -150,17 +193,15 @@ function App() {
     <AppShell
       activeTab={activeTab}
       isModalOpen={isModalOpen}
-      onOpenModal={() => setIsModalOpen(true)}
+      onOpenModal={openReminderModal}
       onTabChange={setActiveTab}
       modalContent={
         <NewReminderModal
           errorMessage={saveError}
           isSubmitting={isSubmitting}
-          onClose={() => {
-            setIsModalOpen(false)
-            setSaveError('')
-          }}
+          onClose={closeReminderModal}
           onSubmit={handleCreateReminder}
+          saveSucceeded={saveSucceeded}
         />
       }
     >
@@ -181,7 +222,7 @@ function App() {
           >
             <Bell size={21} />
           </button>
-          <button className="icon-button" type="button" aria-label="Más opciones">
+          <button className="icon-button" type="button" aria-label="Mas opciones">
             <Ellipsis size={21} />
           </button>
         </div>
@@ -248,9 +289,13 @@ function App() {
             </div>
             <h3>No hay recordatorios para esta vista</h3>
             <p>
-              Crea uno nuevo con fecha y hora desde el botón azul para empezar a llenar tu agenda.
+              Crea uno nuevo con fecha y hora desde el boton azul para empezar a llenar tu agenda.
             </p>
-            <button className="empty-state__button" type="button" onClick={() => setIsModalOpen(true)}>
+            <button
+              className="empty-state__button"
+              type="button"
+              onClick={openReminderModal}
+            >
               Crear recordatorio
             </button>
           </article>

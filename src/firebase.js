@@ -1,5 +1,6 @@
 import { getApps, initializeApp } from 'firebase/app'
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore, setLogLevel } from 'firebase/firestore'
+import { getFirestore as getLiteFirestore } from 'firebase/firestore/lite'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyB9qh6f7iyYRr4CZll35l-j_gm6uCuJe7Q',
@@ -13,6 +14,9 @@ const firebaseConfig = {
 
 const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig)
 
+setLogLevel('silent')
+
 export const db = getFirestore(app)
+export const liteDb = getLiteFirestore(app)
 
 export default app

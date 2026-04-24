@@ -23,7 +23,12 @@ import {
   inferReminderVisual,
   renderReminderIcon,
 } from '../reminderOptions'
-import { formatFriendlyDate, formatFriendlyTime, getRoundedTime, getTodayKey } from '../reminderUtils'
+import {
+  formatFriendlyDate,
+  formatFriendlyTime,
+  getRoundedTime,
+  getTodayKey,
+} from '../reminderUtils'
 
 function ExpandableRow({
   icon,
@@ -54,7 +59,19 @@ function ExpandableRow({
   )
 }
 
-function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
+function getSubmitLabel(isSubmitting, saveSucceeded) {
+  if (isSubmitting) {
+    return 'Creando...'
+  }
+
+  if (saveSucceeded) {
+    return 'Guardado'
+  }
+
+  return 'Crear recordatorio'
+}
+
+function ReminderForm({ errorMessage, isSubmitting, onSubmit, saveSucceeded }) {
   const [formValues, setFormValues] = useState({
     title: '',
     notes: '',
@@ -74,7 +91,9 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
   const alertMeta = getAlertMeta(formValues.alertMinutes)
   const PriorityPreviewIcon = priorityMeta.icon
   const isFormValid =
-    formValues.title.trim().length > 0 && formValues.date.length > 0 && formValues.time.length > 0
+    formValues.title.trim().length > 0 &&
+    formValues.date.length > 0 &&
+    formValues.time.length > 0
 
   function updateField(field, value) {
     setFormValues((current) => ({
@@ -86,7 +105,7 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
   async function handleSubmit(event) {
     event.preventDefault()
 
-    if (!isFormValid || isSubmitting) {
+    if (!isFormValid || isSubmitting || saveSucceeded) {
       return
     }
 
@@ -113,7 +132,7 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
             </div>
 
             <input
-              aria-label="Título del recordatorio"
+              aria-label="Titulo del recordatorio"
               onChange={(event) => updateField('title', event.target.value)}
               placeholder="Enviar propuesta a cliente"
               required
@@ -123,7 +142,7 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
 
             {formValues.title ? (
               <button
-                aria-label="Limpiar título"
+                aria-label="Limpiar titulo"
                 className="field-shell__clear"
                 onClick={() => updateField('title', '')}
                 type="button"
@@ -141,14 +160,14 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
             <textarea
               aria-label="Notas del recordatorio"
               onChange={(event) => updateField('notes', event.target.value)}
-              placeholder="Añadir notas"
+              placeholder="Anadir notas"
               rows={3}
               value={formValues.notes}
             />
           </div>
 
           <p className="helper-text">
-            Añade detalles adicionales sobre este recordatorio...
+            Anade detalles adicionales sobre este recordatorio...
           </p>
         </section>
 
@@ -200,7 +219,7 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
                   <ListTodo size={20} color="#8B5CF6" />
                 </div>
                 <div>
-                  <p className="settings-row__label">Lista / Categoría</p>
+                  <p className="settings-row__label">Lista / Categoria</p>
                   <p className="settings-row__value">Selecciona el contexto del recordatorio</p>
                 </div>
               </div>
@@ -238,7 +257,7 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
                 </div>
                 <div>
                   <p className="settings-row__label">Prioridad</p>
-                  <p className="settings-row__value">Define qué tan urgente es</p>
+                  <p className="settings-row__value">Define que tan urgente es</p>
                 </div>
               </div>
             </div>
@@ -278,7 +297,7 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
             <label className="inline-picker">
               <span>Frecuencia</span>
               <select
-                aria-label="Frecuencia de repetición"
+                aria-label="Frecuencia de repeticion"
                 onChange={(event) => updateField('repeat', event.target.value)}
                 value={formValues.repeat}
               >
@@ -300,7 +319,7 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
             value={alertMeta.label}
           >
             <label className="inline-picker">
-              <span>Cuándo avisar</span>
+              <span>Cuando avisar</span>
               <select
                 aria-label="Momento de alerta"
                 onChange={(event) => updateField('alertMinutes', Number(event.target.value))}
@@ -322,7 +341,7 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
               <span className="utility-row__icon utility-row__icon--blue">
                 <ListTodo size={18} />
               </span>
-              Añadir subtarea
+              Anadir subtarea
             </span>
             <span className="utility-row__action">
               <Plus size={16} />
@@ -334,7 +353,7 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
               <span className="utility-row__icon utility-row__icon--purple">
                 <Paperclip size={18} />
               </span>
-              Añadir archivo
+              Anadir archivo
             </span>
             <span className="utility-row__action">
               <Plus size={16} />
@@ -342,12 +361,19 @@ function ReminderForm({ errorMessage, isSubmitting, onSubmit }) {
           </button>
         </section>
 
+        {saveSucceeded ? (
+          <p className="feedback-message feedback-message--success">Guardado</p>
+        ) : null}
         {errorMessage ? <p className="feedback-message feedback-message--error">{errorMessage}</p> : null}
       </div>
 
       <div className="form-footer">
-        <button className="primary-button" disabled={!isFormValid || isSubmitting} type="submit">
-          {isSubmitting ? 'Creando...' : 'Crear recordatorio'}
+        <button
+          className="primary-button"
+          disabled={!isFormValid || isSubmitting || saveSucceeded}
+          type="submit"
+        >
+          {getSubmitLabel(isSubmitting, saveSucceeded)}
         </button>
       </div>
     </form>
