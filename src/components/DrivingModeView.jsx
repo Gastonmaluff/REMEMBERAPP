@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Check,
   RefreshCw,
+  Volume2,
 } from 'lucide-react'
 import CompletionCelebration from './CompletionCelebration'
 import { getCategoryMeta, getPriorityMeta } from '../reminderOptions'
@@ -20,7 +21,13 @@ import {
 
 const REFRESH_INTERVAL_MS = 7 * 60 * 1000
 
-function DrivingReminderRow({ actionState, onComplete, reminder, todayKey }) {
+function DrivingReminderRow({
+  actionState,
+  highlightTone,
+  onComplete,
+  reminder,
+  todayKey,
+}) {
   const categoryMeta = getCategoryMeta(reminder.category)
   const priorityMeta = getPriorityMeta(reminder.priority)
   const bucket = getDrivingBucket(reminder, todayKey)
@@ -39,7 +46,7 @@ function DrivingReminderRow({ actionState, onComplete, reminder, todayKey }) {
 
   return (
     <article
-      className={`driving-row driving-row--${bucket} ${isMariaSource ? 'is-maria' : ''} ${isCompleting ? 'is-completing' : ''} ${isCelebrating ? 'is-celebrating' : ''} ${isExiting ? 'is-exiting' : ''}`}
+      className={`driving-row driving-row--${bucket} ${isMariaSource ? 'is-maria' : ''} ${isCompleting ? 'is-completing' : ''} ${isCelebrating ? 'is-celebrating' : ''} ${isExiting ? 'is-exiting' : ''} ${highlightTone ? 'is-new-arrival' : ''}`}
     >
       {isCompleting ? <CompletionCelebration compact isMaria={isMariaSource} /> : null}
 
@@ -103,9 +110,13 @@ function DrivingReminderRow({ actionState, onComplete, reminder, todayKey }) {
 
 function DrivingModeView({
   actionFeedback,
+  audioAlertsEnabled,
   errorMessage,
+  highlightedReminders,
+  incomingAlert,
   isRefreshing,
   lastUpdatedAt,
+  onEnableAudioAlerts,
   onClose,
   onComplete,
   onRefresh,
@@ -154,6 +165,35 @@ function DrivingModeView({
           </button>
         </header>
 
+        <div className="driving-mode__utility">
+          {!audioAlertsEnabled ? (
+            <button
+              className="driving-audio-button"
+              onClick={onEnableAudioAlerts}
+              type="button"
+            >
+              <Volume2 size={16} />
+              Activar alertas
+            </button>
+          ) : (
+            <span className="driving-audio-state">
+              <Volume2 size={14} />
+              Sonido activo
+            </span>
+          )}
+        </div>
+
+        {incomingAlert ? (
+          <div
+            aria-live="polite"
+            className={`driving-alert-banner ${incomingAlert.tone === 'maria' ? 'is-maria' : ''}`}
+            key={incomingAlert.id}
+          >
+            <p className="driving-alert-banner__eyebrow">{incomingAlert.title}</p>
+            <strong>{incomingAlert.message}</strong>
+          </div>
+        ) : null}
+
         {errorMessage ? (
           <p className="feedback-message feedback-message--error driving-mode__feedback">
             {errorMessage}
@@ -170,6 +210,7 @@ function DrivingModeView({
             {reminders.map((reminder) => (
               <DrivingReminderRow
                 actionState={transitionStates[reminder.id]}
+                highlightTone={highlightedReminders[reminder.id]}
                 key={reminder.id}
                 onComplete={onComplete}
                 reminder={reminder}

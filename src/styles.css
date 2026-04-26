@@ -1306,6 +1306,74 @@ textarea::placeholder {
   color: var(--text-muted);
 }
 
+.driving-mode__utility {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.driving-audio-button,
+.driving-audio-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.driving-audio-button {
+  color: var(--primary);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    inset 0 0 0 1px rgba(47, 128, 237, 0.14),
+    0 8px 18px rgba(47, 128, 237, 0.08);
+}
+
+.driving-audio-state {
+  color: #2076da;
+  background: rgba(238, 244, 255, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(47, 128, 237, 0.12);
+}
+
+.driving-alert-banner {
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  color: #1f4e8e;
+  background: linear-gradient(180deg, rgba(238, 244, 255, 0.96), rgba(255, 255, 255, 0.98));
+  box-shadow:
+    inset 0 0 0 1px rgba(47, 128, 237, 0.12),
+    0 12px 24px rgba(47, 128, 237, 0.08);
+  animation: driving-alert-presence 4s ease forwards;
+}
+
+.driving-alert-banner.is-maria {
+  color: #b24b6a;
+  background: linear-gradient(180deg, rgba(255, 236, 242, 0.98), rgba(255, 255, 255, 0.98));
+  box-shadow:
+    inset 0 0 0 1px rgba(227, 93, 155, 0.16),
+    0 12px 24px rgba(227, 93, 155, 0.1);
+}
+
+.driving-alert-banner__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.69rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.driving-alert-banner strong {
+  display: block;
+  font-size: 0.94rem;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
 .driving-mode__feedback {
   margin-bottom: 8px;
   font-size: 0.8rem;
@@ -1365,6 +1433,14 @@ textarea::placeholder {
 .driving-row.is-maria.driving-row--overdue {
   border-color: rgba(227, 93, 155, 0.28);
   background: linear-gradient(180deg, rgba(255, 237, 243, 0.98), rgba(255, 251, 252, 0.98));
+}
+
+.driving-row.is-new-arrival {
+  animation: driving-new-arrival-default 5.1s ease forwards;
+}
+
+.driving-row.is-new-arrival.is-maria {
+  animation-name: driving-new-arrival-maria;
 }
 
 .driving-row__content {
@@ -2072,6 +2148,88 @@ textarea::placeholder {
   }
 }
 
+@keyframes driving-alert-presence {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+
+  10% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  82% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+}
+
+@keyframes driving-new-arrival-default {
+  0% {
+    transform: translateY(0) scale(1);
+    border-color: rgba(47, 128, 237, 0.14);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
+  }
+
+  14% {
+    transform: translateY(-1px) scale(1.01);
+    border-color: rgba(47, 128, 237, 0.34);
+    box-shadow:
+      0 0 0 1px rgba(47, 128, 237, 0.16),
+      0 0 26px rgba(47, 128, 237, 0.14);
+  }
+
+  38% {
+    transform: translateY(0) scale(1);
+    border-color: rgba(47, 128, 237, 0.24);
+    box-shadow:
+      0 0 0 1px rgba(47, 128, 237, 0.12),
+      0 0 18px rgba(47, 128, 237, 0.1);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+    border-color: rgba(15, 23, 42, 0.05);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
+  }
+}
+
+@keyframes driving-new-arrival-maria {
+  0% {
+    transform: translateY(0) scale(1);
+    border-color: rgba(227, 93, 155, 0.24);
+    box-shadow: 0 8px 18px rgba(227, 93, 155, 0.08);
+  }
+
+  14% {
+    transform: translateY(-1px) scale(1.01);
+    border-color: rgba(227, 93, 155, 0.4);
+    box-shadow:
+      0 0 0 1px rgba(227, 93, 155, 0.16),
+      0 0 24px rgba(227, 93, 155, 0.16);
+  }
+
+  38% {
+    transform: translateY(0) scale(1);
+    border-color: rgba(227, 93, 155, 0.3);
+    box-shadow:
+      0 0 0 1px rgba(227, 93, 155, 0.12),
+      0 0 18px rgba(227, 93, 155, 0.12);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+    border-color: rgba(227, 93, 155, 0.24);
+    box-shadow: 0 8px 18px rgba(227, 93, 155, 0.08);
+  }
+}
+
 @keyframes reminder-restore-exit {
   0% {
     opacity: 0.72;
@@ -2149,6 +2307,26 @@ textarea::placeholder {
   .driving-header {
     grid-template-columns: 40px 1fr 40px;
     gap: 8px;
+  }
+
+  .driving-mode__utility {
+    margin-bottom: 6px;
+  }
+
+  .driving-audio-button,
+  .driving-audio-state {
+    min-height: 34px;
+    padding-inline: 11px;
+    font-size: 0.74rem;
+  }
+
+  .driving-alert-banner {
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+
+  .driving-alert-banner strong {
+    font-size: 0.88rem;
   }
 
   .driving-row {

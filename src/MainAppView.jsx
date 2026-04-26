@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bell,
   CheckCircle2,
@@ -15,7 +15,12 @@ import FilterChips from './components/FilterChips'
 import NewReminderModal from './components/NewReminderModal'
 import ReminderCard from './components/ReminderCard'
 import ReminderStats from './components/ReminderStats'
-import { playCompletionSound } from './completionEffects'
+import {
+  enableReminderAlertAudio,
+  playCompletionSound,
+  playReminderAlertSound,
+} from './completionEffects'
+import { isMariaReminder } from './portalConfig'
 import { FILTER_OPTIONS } from './reminderOptions'
 import {
   createReminder,
@@ -35,6 +40,9 @@ import {
 const REMINDER_COMPLETE_CELEBRATION_MS = 900
 const REMINDER_COMPLETE_EXIT_MS = 250
 const REMINDER_RESTORE_TRANSITION_MS = 420
+const DRIVING_ALERT_BANNER_MS = 4000
+const DRIVING_ALERT_HIGHLIGHT_MS = 5200
+const DRIVING_AUDIO_SESSION_KEY = 'rememberapp:driving-audio-enabled'
 
 function wait(duration) {
   return new Promise((resolve) => {
@@ -73,6 +81,20 @@ function MainAppView() {
   const [lastDrivingRefreshAt, setLastDrivingRefreshAt] = useState(null)
   const [isCompletedSectionOpen, setIsCompletedSectionOpen] = useState(false)
   const [reminderTransitions, setReminderTransitions] = useState({})
+  const [isDrivingAudioEnabled, setIsDrivingAudioEnabled] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return window.sessionStorage.getItem(DRIVING_AUDIO_SESSION_KEY) === 'true'
+  })
+  const [drivingIncomingAlert, setDrivingIncomingAlert] = useState(null)
+  const [drivingHighlightedReminders, setDrivingHighlightedReminders] = useState({})
+
+  const hasInitializedDrivingAlertsRef = useRef(false)
+  const seenDrivingReminderIdsRef = useRef(new Set())
+  const drivingAlertTimeoutRef = useRef(null)
+  const drivingHighlightTimeoutsRef = useRef({})
 
   useEffect(() => {
     const unsubscribe = subscribeToReminders(
@@ -196,6 +218,100 @@ function MainAppView() {
     })
   }, [])
 
+  const clearDrivingIncomingAlert = useCallback(() => {
+    if (drivingAlertTimeoutRef.current) {
+      window.clearTimeout(drivingAlertTimeoutRef.current)
+      drivingAlertTimeoutRef.current = null
+    }
+
+    setDrivingIncomingAlert(null)
+  }, [])
+
+  const clearDrivingHighlight = useCallback((reminderId) => {
+    const timeoutId = drivingHighlightTimeoutsRef.current[reminderId]
+
+    if (timeoutId) {
+      window.clearTimeout(timeoutId)
+      delete drivingHighlightTimeoutsRef.current[reminderId]
+    }
+
+    setDrivingHighlightedReminders((current) => {
+      if (!current[reminderId]) {
+        return current
+      }
+
+      const next = { ...current }
+      delete next[reminderId]
+      return next
+    })
+  }, [])
+
+  const showDrivingIncomingAlert = useCallback(
+    (newReminders) => {
+      if (!newReminders.length) {
+        return
+      }
+
+      const mariaOnly = newReminders.every((reminder) => isMariaReminder(reminder))
+      const latestReminder = newReminders[newReminders.length - 1]
+      const count = newReminders.length
+
+      let title = 'Nuevo recordatorio'
+      let message = latestReminder.title
+
+      if (count === 1 && isMariaReminder(latestReminder)) {
+        title = 'Nuevo recordatorio de Maria'
+      } else if (count > 1 && mariaOnly) {
+        title = `Maria agrego ${count} recordatorios`
+        message = 'Revisa los pendientes que acaban de entrar.'
+      } else if (count > 1) {
+        title = `Se agregaron ${count} recordatorios nuevos`
+        message = 'Revisa tus pendientes recientes.'
+      }
+
+      clearDrivingIncomingAlert()
+      setDrivingIncomingAlert({
+        id: `${Date.now()}-${latestReminder.id}`,
+        title,
+        message,
+        tone: mariaOnly ? 'maria' : 'default',
+      })
+
+      drivingAlertTimeoutRef.current = window.setTimeout(() => {
+        setDrivingIncomingAlert(null)
+        drivingAlertTimeoutRef.current = null
+      }, DRIVING_ALERT_BANNER_MS)
+    },
+    [clearDrivingIncomingAlert],
+  )
+
+  const highlightDrivingReminders = useCallback(
+    (newReminders) => {
+      setDrivingHighlightedReminders((current) => {
+        const next = { ...current }
+
+        newReminders.forEach((reminder) => {
+          next[reminder.id] = isMariaReminder(reminder) ? 'maria' : 'default'
+        })
+
+        return next
+      })
+
+      newReminders.forEach((reminder) => {
+        const existingTimeoutId = drivingHighlightTimeoutsRef.current[reminder.id]
+
+        if (existingTimeoutId) {
+          window.clearTimeout(existingTimeoutId)
+        }
+
+        drivingHighlightTimeoutsRef.current[reminder.id] = window.setTimeout(() => {
+          clearDrivingHighlight(reminder.id)
+        }, DRIVING_ALERT_HIGHLIGHT_MS)
+      })
+    },
+    [clearDrivingHighlight],
+  )
+
   const refreshDrivingMode = useCallback(async () => {
     setDrivingError('')
     setDrivingActionFeedback('')
@@ -228,17 +344,45 @@ function MainAppView() {
   }
 
   function openDrivingMode() {
+    hasInitializedDrivingAlertsRef.current = false
+    seenDrivingReminderIdsRef.current = new Set()
     setDrivingError('')
     setDrivingActionFeedback('')
+    clearDrivingIncomingAlert()
+    setDrivingHighlightedReminders({})
     setIsDrivingModeOpen(true)
   }
 
   function closeDrivingMode() {
+    hasInitializedDrivingAlertsRef.current = false
+    seenDrivingReminderIdsRef.current = new Set()
     setIsDrivingModeOpen(false)
     setDrivingError('')
     setDrivingActionFeedback('')
     setIsDrivingRefreshRunning(false)
+    clearDrivingIncomingAlert()
+
+    Object.values(drivingHighlightTimeoutsRef.current).forEach((timeoutId) => {
+      window.clearTimeout(timeoutId)
+    })
+
+    drivingHighlightTimeoutsRef.current = {}
+    setDrivingHighlightedReminders({})
   }
+
+  const handleEnableDrivingAudioAlerts = useCallback(async () => {
+    const enabled = await enableReminderAlertAudio()
+
+    if (!enabled) {
+      setDrivingActionFeedback('No se pudo activar el sonido en este navegador.')
+      return
+    }
+
+    console.info('Audio alerts enabled')
+    setDrivingActionFeedback('')
+    setIsDrivingAudioEnabled(true)
+    window.sessionStorage.setItem(DRIVING_AUDIO_SESSION_KEY, 'true')
+  }, [])
 
   async function handleCreateReminder(formValues) {
     setSaveError('')
@@ -378,6 +522,67 @@ function MainAppView() {
     [handleReminderCompletionChange],
   )
 
+  useEffect(() => {
+    return () => {
+      clearDrivingIncomingAlert()
+
+      Object.values(drivingHighlightTimeoutsRef.current).forEach((timeoutId) => {
+        window.clearTimeout(timeoutId)
+      })
+    }
+  }, [clearDrivingIncomingAlert])
+
+  useEffect(() => {
+    if (!isDrivingModeOpen) {
+      return
+    }
+
+    const currentPendingReminders = drivingReminders.filter(
+      (reminder) => reminder.completed !== true,
+    )
+
+    if (!hasInitializedDrivingAlertsRef.current) {
+      seenDrivingReminderIdsRef.current = new Set(
+        currentPendingReminders.map((reminder) => reminder.id),
+      )
+      hasInitializedDrivingAlertsRef.current = true
+      return
+    }
+
+    const newReminders = currentPendingReminders.filter(
+      (reminder) => !seenDrivingReminderIdsRef.current.has(reminder.id),
+    )
+
+    if (!newReminders.length) {
+      return
+    }
+
+    newReminders.forEach((reminder) => {
+      if (isMariaReminder(reminder)) {
+        console.info('New Maria reminder detected:', reminder.id)
+      } else {
+        console.info('New reminder detected:', reminder.id)
+      }
+    })
+
+    newReminders.forEach((reminder) => {
+      seenDrivingReminderIdsRef.current.add(reminder.id)
+    })
+
+    highlightDrivingReminders(newReminders)
+    showDrivingIncomingAlert(newReminders)
+
+    if (isDrivingAudioEnabled) {
+      void playReminderAlertSound()
+    }
+  }, [
+    drivingReminders,
+    highlightDrivingReminders,
+    isDrivingAudioEnabled,
+    isDrivingModeOpen,
+    showDrivingIncomingAlert,
+  ])
+
   const hasCompletedReminders = completedReminders.length > 0
   const hasPendingReminders = pendingReminders.length > 0
   const isCompletedSectionVisible = hasCompletedReminders && isCompletedSectionOpen
@@ -399,9 +604,13 @@ function MainAppView() {
   ) : isDrivingModeOpen ? (
     <DrivingModeView
       actionFeedback={drivingActionFeedback}
+      audioAlertsEnabled={isDrivingAudioEnabled}
+      highlightedReminders={drivingHighlightedReminders}
+      incomingAlert={drivingIncomingAlert}
       errorMessage={drivingError}
       isRefreshing={isDrivingRefreshRunning}
       lastUpdatedAt={lastDrivingRefreshAt}
+      onEnableAudioAlerts={handleEnableDrivingAudioAlerts}
       onClose={closeDrivingMode}
       onComplete={handleCompleteReminderFromDriving}
       onRefresh={refreshDrivingMode}
