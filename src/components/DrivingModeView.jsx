@@ -21,26 +21,40 @@ import {
 } from '../portalConfig'
 
 const REFRESH_INTERVAL_MS = 7 * 60 * 1000
-const DRIVER_ATTENTION_INTERVAL_MS = 25000
+const DRIVER_ATTENTION_INTERVAL_MS = 22000
 const DRIVER_ATTENTION_PAUSE_AFTER_INTERACTION_MS = 20000
-const DRIVER_ATTENTION_ANIMATION_MS = 720
+const DRIVER_ATTENTION_STAGGER_MS = 120
 const DRIVER_VISIBLE_ROW_THRESHOLD_PX = 24
 
 const ATTENTION_ANIMATION_WEIGHTS = [
-  ['nudge', 35],
-  ['lift', 25],
-  ['glow', 25],
-  ['tilt', 15],
+  ['tilt', 45],
+  ['nudge', 20],
+  ['glow', 20],
+  ['lift', 15],
 ]
 
-function getAttentionAnimationType() {
-  const totalWeight = ATTENTION_ANIMATION_WEIGHTS.reduce(
+const PRIMARY_ATTENTION_ANIMATION_WEIGHTS = [
+  ['tilt', 60],
+  ['glow', 15],
+  ['nudge', 15],
+  ['lift', 10],
+]
+
+const ATTENTION_ANIMATION_DURATIONS = {
+  tilt: 1450,
+  nudge: 1040,
+  glow: 1180,
+  lift: 980,
+}
+
+function getWeightedRandomType(weights) {
+  const totalWeight = weights.reduce(
     (sum, [, weight]) => sum + weight,
     0,
   )
   let cursor = Math.random() * totalWeight
 
-  for (const [type, weight] of ATTENTION_ANIMATION_WEIGHTS) {
+  for (const [type, weight] of weights) {
     cursor -= weight
 
     if (cursor <= 0) {
@@ -49,6 +63,12 @@ function getAttentionAnimationType() {
   }
 
   return 'nudge'
+}
+
+function getAttentionAnimationType({ preferTilt = false } = {}) {
+  return getWeightedRandomType(
+    preferTilt ? PRIMARY_ATTENTION_ANIMATION_WEIGHTS : ATTENTION_ANIMATION_WEIGHTS,
+  )
 }
 
 function getReminderAttentionScore(reminder, todayKey) {
@@ -78,28 +98,110 @@ function getReminderAttentionScore(reminder, todayKey) {
   return score
 }
 
-function pickAttentionReminder(candidates, todayKey) {
+function pickWeightedReminder(candidates) {
   if (!candidates.length) {
     return null
+  }
+
+  const totalWeight = candidates.reduce((sum, candidate) => sum + candidate.score, 0)
+  let cursor = Math.random() * totalWeight
+
+  for (const candidate of candidates) {
+    cursor -= candidate.score
+
+    if (cursor <= 0) {
+      return candidate
+    }
+  }
+
+  return candidates[0] ?? null
+}
+
+function getAttentionTargetCount(visibleCandidatesCount) {
+  if (visibleCandidatesCount <= 1) {
+    return visibleCandidatesCount
+  }
+
+  if (visibleCandidatesCount === 2) {
+    return 2
+  }
+
+  return Math.random() < 0.52 ? 2 : 3
+}
+
+function pickAttentionReminders(candidates, todayKey) {
+  if (!candidates.length) {
+    return []
   }
 
   const scoredCandidates = candidates
     .map((reminder) => ({
       reminder,
       score: getReminderAttentionScore(reminder, todayKey),
+      isPriorityAnchor:
+        getDrivingBucket(reminder, todayKey) === 'overdue' || isMariaReminder(reminder),
     }))
     .sort((left, right) => right.score - left.score)
 
   const topScore = scoredCandidates[0]?.score ?? 0
-  const preferredCandidates = scoredCandidates
-    .filter(({ score }) => score >= Math.max(topScore - 1, 1))
-    .slice(0, 5)
+  const desiredCount = Math.min(scoredCandidates.length, getAttentionTargetCount(candidates.length))
+  let candidatePool = scoredCandidates
+    .filter(({ score }) => score >= Math.max(topScore - 2, 1))
+    .slice(0, 6)
 
-  return preferredCandidates[Math.floor(Math.random() * preferredCandidates.length)]?.reminder ?? null
+  if (candidatePool.length < desiredCount) {
+    candidatePool = scoredCandidates.slice(0, Math.min(6, Math.max(desiredCount, candidatePool.length)))
+  }
+
+  const targetCount = Math.min(candidatePool.length, desiredCount)
+
+  if (!targetCount) {
+    return []
+  }
+
+  const selected = []
+  const available = [...candidatePool]
+  const priorityAnchors = available.filter((candidate) => candidate.isPriorityAnchor)
+
+  if (priorityAnchors.length) {
+    const anchor = pickWeightedReminder(priorityAnchors)
+
+    if (anchor) {
+      selected.push(anchor.reminder)
+      const anchorIndex = available.findIndex(
+        (candidate) => candidate.reminder.id === anchor.reminder.id,
+      )
+
+      if (anchorIndex >= 0) {
+        available.splice(anchorIndex, 1)
+      }
+    }
+  }
+
+  while (selected.length < targetCount && available.length) {
+    const picked = pickWeightedReminder(available)
+
+    if (!picked) {
+      break
+    }
+
+    selected.push(picked.reminder)
+
+    const pickedIndex = available.findIndex(
+      (candidate) => candidate.reminder.id === picked.reminder.id,
+    )
+
+    if (pickedIndex >= 0) {
+      available.splice(pickedIndex, 1)
+    }
+  }
+
+  return selected
 }
 
 function DrivingReminderRow({
   actionState,
+  attentionAnimationDelay,
   attentionAnimationType,
   highlightTone,
   onComplete,
@@ -127,6 +229,11 @@ function DrivingReminderRow({
     <article
       className={`driving-row driving-row--${bucket} ${isMariaSource ? 'is-maria' : ''} ${isCompleting ? 'is-completing' : ''} ${isCelebrating ? 'is-celebrating' : ''} ${isExiting ? 'is-exiting' : ''} ${highlightTone ? 'is-new-arrival' : ''} ${attentionAnimationType ? `driver-card-attention--${attentionAnimationType}` : ''}`}
       ref={rowRef}
+      style={
+        attentionAnimationType
+          ? { '--driver-attention-delay': `${attentionAnimationDelay}ms` }
+          : undefined
+      }
     >
       {isCompleting ? <CompletionCelebration compact isMaria={isMariaSource} /> : null}
 
@@ -204,9 +311,9 @@ function DrivingModeView({
   transitionStates,
   todayKey,
 }) {
-  const [attentionAnimation, setAttentionAnimation] = useState(null)
+  const [attentionAnimations, setAttentionAnimations] = useState([])
 
-  const attentionAnimationRef = useRef(null)
+  const attentionAnimationsRef = useRef([])
   const attentionTimeoutRef = useRef(null)
   const lastInteractionAtRef = useRef(0)
   const prefersReducedMotionRef = useRef(false)
@@ -242,20 +349,20 @@ function DrivingModeView({
     lastInteractionAtRef.current = Date.now()
   }, [])
 
-  const clearAttentionAnimation = useCallback(() => {
+  const clearAttentionAnimations = useCallback(() => {
     if (attentionTimeoutRef.current) {
       window.clearTimeout(attentionTimeoutRef.current)
       attentionTimeoutRef.current = null
     }
 
-    attentionAnimationRef.current = null
-    setAttentionAnimation(null)
+    attentionAnimationsRef.current = []
+    setAttentionAnimations([])
   }, [])
 
   const markUserInteraction = useCallback(() => {
     lastInteractionAtRef.current = Date.now()
-    clearAttentionAnimation()
-  }, [clearAttentionAnimation])
+    clearAttentionAnimations()
+  }, [clearAttentionAnimations])
 
   const setRowRef = useCallback((reminderId, node) => {
     if (node) {
@@ -308,7 +415,7 @@ function DrivingModeView({
       return
     }
 
-    if (attentionAnimationRef.current || incomingAlertRef.current) {
+    if (attentionAnimationsRef.current.length > 0 || incomingAlertRef.current) {
       return
     }
 
@@ -330,25 +437,34 @@ function DrivingModeView({
       currentTransitions,
       currentHighlights,
     )
-    const reminderToAnimate = pickAttentionReminder(visibleCandidates, todayKeyRef.current)
+    const remindersToAnimate = pickAttentionReminders(
+      visibleCandidates,
+      todayKeyRef.current,
+    )
 
-    if (!reminderToAnimate) {
+    if (!remindersToAnimate.length) {
       return
     }
 
-    const nextAttentionAnimation = {
-      reminderId: reminderToAnimate.id,
-      type: getAttentionAnimationType(),
-    }
+    const nextAttentionAnimations = remindersToAnimate.map((reminder, index) => ({
+      reminderId: reminder.id,
+      type: getAttentionAnimationType({ preferTilt: index === 0 }),
+      delay: index * DRIVER_ATTENTION_STAGGER_MS,
+    }))
 
-    attentionAnimationRef.current = nextAttentionAnimation
-    setAttentionAnimation(nextAttentionAnimation)
+    const maxAnimationTime = nextAttentionAnimations.reduce((maxDuration, animation) => {
+      const totalDuration =
+        (ATTENTION_ANIMATION_DURATIONS[animation.type] ?? 1200) + animation.delay
+      return Math.max(maxDuration, totalDuration)
+    }, 0)
 
+    attentionAnimationsRef.current = nextAttentionAnimations
+    setAttentionAnimations(nextAttentionAnimations)
     attentionTimeoutRef.current = window.setTimeout(() => {
       attentionTimeoutRef.current = null
-      attentionAnimationRef.current = null
-      setAttentionAnimation(null)
-    }, DRIVER_ATTENTION_ANIMATION_MS)
+      attentionAnimationsRef.current = []
+      setAttentionAnimations([])
+    }, maxAnimationTime + 120)
   }, [getVisibleCandidateReminders])
 
   useEffect(() => {
@@ -361,7 +477,7 @@ function DrivingModeView({
       prefersReducedMotionRef.current = mediaQuery.matches
 
       if (mediaQuery.matches) {
-        clearAttentionAnimation()
+        clearAttentionAnimations()
       }
     }
 
@@ -380,7 +496,7 @@ function DrivingModeView({
     return () => {
       mediaQuery.removeListener(updateReducedMotionPreference)
     }
-  }, [clearAttentionAnimation])
+  }, [clearAttentionAnimations])
 
   useEffect(() => {
     onRefresh()
@@ -401,9 +517,9 @@ function DrivingModeView({
 
     return () => {
       window.clearInterval(intervalId)
-      clearAttentionAnimation()
+      clearAttentionAnimations()
     }
-  }, [clearAttentionAnimation, triggerAttentionAnimation])
+  }, [clearAttentionAnimations, triggerAttentionAnimation])
 
   const handleClose = useCallback(() => {
     markUserInteraction()
@@ -505,10 +621,15 @@ function DrivingModeView({
             {reminders.map((reminder) => (
               <DrivingReminderRow
                 actionState={transitionStates[reminder.id]}
+                attentionAnimationDelay={
+                  attentionAnimations.find(
+                    (attentionAnimation) => attentionAnimation.reminderId === reminder.id,
+                  )?.delay ?? 0
+                }
                 attentionAnimationType={
-                  attentionAnimation?.reminderId === reminder.id
-                    ? attentionAnimation.type
-                    : ''
+                  attentionAnimations.find(
+                    (attentionAnimation) => attentionAnimation.reminderId === reminder.id,
+                  )?.type ?? ''
                 }
                 highlightTone={highlightedReminders[reminder.id]}
                 key={reminder.id}

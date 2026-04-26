@@ -1462,19 +1462,23 @@ textarea::placeholder {
 }
 
 .driving-row.driver-card-attention--nudge {
-  animation: driver-card-attention-nudge 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: driver-card-attention-nudge 1040ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation-delay: var(--driver-attention-delay, 0ms);
 }
 
 .driving-row.driver-card-attention--lift {
-  animation: driver-card-attention-lift 540ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: driver-card-attention-lift 980ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation-delay: var(--driver-attention-delay, 0ms);
 }
 
 .driving-row.driver-card-attention--glow {
-  animation: driver-card-attention-glow 620ms ease-out;
+  animation: driver-card-attention-glow 1180ms ease-in-out;
+  animation-delay: var(--driver-attention-delay, 0ms);
 }
 
 .driving-row.driver-card-attention--tilt {
-  animation: driver-card-attention-tilt 560ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: driver-card-attention-tilt 1450ms ease-in-out;
+  animation-delay: var(--driver-attention-delay, 0ms);
 }
 
 .driving-row__content {
@@ -2269,12 +2273,16 @@ textarea::placeholder {
     transform: translateX(0);
   }
 
-  34% {
-    transform: translateX(4px);
+  22% {
+    transform: translateX(5px);
   }
 
-  62% {
-    transform: translateX(-2px);
+  48% {
+    transform: translateX(-4px);
+  }
+
+  72% {
+    transform: translateX(3px);
   }
 
   100% {
@@ -2288,11 +2296,18 @@ textarea::placeholder {
     box-shadow: var(--driving-row-shadow);
   }
 
-  42% {
-    transform: translateY(-3px);
+  28% {
+    transform: translateY(-4px) scale(1.006);
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--driving-attention-accent) 70%, white 30%),
       0 12px 24px color-mix(in srgb, var(--driving-attention-glow) 68%, transparent 32%);
+  }
+
+  62% {
+    transform: translateY(-2px) scale(1.003);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--driving-attention-accent) 55%, white 45%),
+      0 10px 20px color-mix(in srgb, var(--driving-attention-glow) 54%, transparent 46%);
   }
 
   100% {
@@ -2305,37 +2320,51 @@ textarea::placeholder {
   0% {
     transform: translateY(0) scale(1);
     border-color: inherit;
+    box-shadow: var(--driving-row-shadow);
   }
 
-  38% {
-    transform: translateY(-1px) scale(1.005);
-    border-color: color-mix(in srgb, var(--driving-attention-accent) 74%, white 26%);
+  26% {
+    transform: translateY(-1px) scale(1.008);
+    border-color: color-mix(in srgb, var(--driving-attention-accent) 82%, white 18%);
     box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--driving-attention-accent) 60%, white 40%),
-      0 0 18px color-mix(in srgb, var(--driving-attention-glow) 78%, transparent 22%);
+      0 0 0 1px color-mix(in srgb, var(--driving-attention-accent) 68%, white 32%),
+      0 0 24px color-mix(in srgb, var(--driving-attention-glow) 84%, transparent 16%);
+  }
+
+  58% {
+    transform: translateY(0) scale(1.004);
+    border-color: color-mix(in srgb, var(--driving-attention-accent) 70%, white 30%);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--driving-attention-accent) 58%, white 42%),
+      0 0 18px color-mix(in srgb, var(--driving-attention-glow) 68%, transparent 32%);
   }
 
   100% {
     transform: translateY(0) scale(1);
     border-color: inherit;
+    box-shadow: var(--driving-row-shadow);
   }
 }
 
 @keyframes driver-card-attention-tilt {
   0% {
-    transform: rotate(0deg);
+    transform: translateX(0) rotate(0deg);
   }
 
-  28% {
-    transform: rotate(0.6deg);
+  24% {
+    transform: translateX(3px) rotate(1.6deg);
   }
 
-  58% {
-    transform: rotate(-0.4deg);
+  48% {
+    transform: translateX(-3px) rotate(-1.3deg);
+  }
+
+  72% {
+    transform: translateX(2px) rotate(1deg);
   }
 
   100% {
-    transform: rotate(0deg);
+    transform: translateX(0) rotate(0deg);
   }
 }
 
