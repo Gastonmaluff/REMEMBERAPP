@@ -1275,10 +1275,22 @@ textarea::placeholder {
 
 .driving-header {
   display: grid;
-  grid-template-columns: 44px 1fr 44px;
+  grid-template-columns: 44px 1fr auto;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
+}
+
+.driving-header__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.icon-button--compact {
+  width: 44px;
+  height: 44px;
 }
 
 .driving-header__copy h2 {
@@ -1306,37 +1318,28 @@ textarea::placeholder {
   color: var(--text-muted);
 }
 
-.driving-mode__utility {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-bottom: 8px;
+.driving-header__sound-button {
+  position: relative;
 }
 
-.driving-audio-button,
-.driving-audio-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.driving-audio-button {
-  color: var(--primary);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow:
-    inset 0 0 0 1px rgba(47, 128, 237, 0.14),
-    0 8px 18px rgba(47, 128, 237, 0.08);
-}
-
-.driving-audio-state {
+.driving-header__sound-button.is-active {
   color: #2076da;
   background: rgba(238, 244, 255, 0.9);
-  box-shadow: inset 0 0 0 1px rgba(47, 128, 237, 0.12);
+  box-shadow:
+    inset 0 0 0 1px rgba(47, 128, 237, 0.12),
+    0 10px 18px rgba(47, 128, 237, 0.08);
+}
+
+.driving-header__sound-button.is-active::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #27ae60;
+  box-shadow: 0 0 0 4px rgba(39, 174, 96, 0.12);
 }
 
 .driving-alert-banner {
@@ -2305,19 +2308,24 @@ textarea::placeholder {
   }
 
   .driving-header {
-    grid-template-columns: 40px 1fr 40px;
+    grid-template-columns: 40px 1fr auto;
     gap: 8px;
   }
 
-  .driving-mode__utility {
-    margin-bottom: 6px;
+  .driving-header__actions {
+    gap: 6px;
   }
 
-  .driving-audio-button,
-  .driving-audio-state {
-    min-height: 34px;
-    padding-inline: 11px;
-    font-size: 0.74rem;
+  .icon-button--compact {
+    width: 40px;
+    height: 40px;
+  }
+
+  .driving-header__sound-button.is-active::after {
+    top: 9px;
+    right: 9px;
+    width: 7px;
+    height: 7px;
   }
 
   .driving-alert-banner {

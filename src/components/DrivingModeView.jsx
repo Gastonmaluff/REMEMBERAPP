@@ -4,6 +4,7 @@ import {
   Check,
   RefreshCw,
   Volume2,
+  VolumeX,
 } from 'lucide-react'
 import CompletionCelebration from './CompletionCelebration'
 import { getCategoryMeta, getPriorityMeta } from '../reminderOptions'
@@ -140,7 +141,7 @@ function DrivingModeView({
     <div className="driving-mode" role="dialog" aria-modal="true" aria-labelledby="driving-mode-title">
       <div className="driving-mode__scroll">
         <header className="driving-header">
-          <button className="icon-button icon-button--ghost" onClick={onClose} type="button" aria-label="Cerrar modo manejo">
+          <button className="icon-button icon-button--ghost icon-button--compact" onClick={onClose} type="button" aria-label="Cerrar modo manejo">
             <ArrowLeft size={22} />
           </button>
 
@@ -150,38 +151,34 @@ function DrivingModeView({
             <p className="driving-header__status">
               {isRefreshing
                 ? 'Actualizando...'
-                : `Ultima actualizacion: ${formatLastUpdated(lastUpdatedAt)}`}
+              : `Ultima actualizacion: ${formatLastUpdated(lastUpdatedAt)}`}
             </p>
           </div>
 
-          <button
-            className="icon-button"
-            disabled={isRefreshing}
-            onClick={onRefresh}
-            type="button"
-            aria-label="Actualizar recordatorios"
-          >
-            <RefreshCw className={isRefreshing ? 'is-spinning' : ''} size={20} />
-          </button>
-        </header>
-
-        <div className="driving-mode__utility">
-          {!audioAlertsEnabled ? (
+          <div className="driving-header__actions">
             <button
-              className="driving-audio-button"
-              onClick={onEnableAudioAlerts}
+              aria-label={audioAlertsEnabled ? 'Sonido activo' : 'Activar sonido'}
+              aria-pressed={audioAlertsEnabled}
+              className={`icon-button icon-button--compact driving-header__sound-button ${audioAlertsEnabled ? 'is-active' : ''}`}
+              onClick={audioAlertsEnabled ? undefined : onEnableAudioAlerts}
+              title={audioAlertsEnabled ? 'Sonido activo' : 'Activar sonido'}
               type="button"
             >
-              <Volume2 size={16} />
-              Activar alertas
+              {audioAlertsEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
-          ) : (
-            <span className="driving-audio-state">
-              <Volume2 size={14} />
-              Sonido activo
-            </span>
-          )}
-        </div>
+
+            <button
+              className="icon-button icon-button--compact"
+              disabled={isRefreshing}
+              onClick={onRefresh}
+              type="button"
+              aria-label="Actualizar recordatorios"
+              title="Actualizar recordatorios"
+            >
+              <RefreshCw className={isRefreshing ? 'is-spinning' : ''} size={20} />
+            </button>
+          </div>
+        </header>
 
         {incomingAlert ? (
           <div
