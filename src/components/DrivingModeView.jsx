@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Check,
@@ -21,11 +21,89 @@ import {
 } from '../portalConfig'
 
 const REFRESH_INTERVAL_MS = 7 * 60 * 1000
+const DRIVER_ATTENTION_INTERVAL_MS = 25000
+const DRIVER_ATTENTION_PAUSE_AFTER_INTERACTION_MS = 20000
+const DRIVER_ATTENTION_ANIMATION_MS = 720
+const DRIVER_VISIBLE_ROW_THRESHOLD_PX = 24
+
+const ATTENTION_ANIMATION_WEIGHTS = [
+  ['nudge', 35],
+  ['lift', 25],
+  ['glow', 25],
+  ['tilt', 15],
+]
+
+function getAttentionAnimationType() {
+  const totalWeight = ATTENTION_ANIMATION_WEIGHTS.reduce(
+    (sum, [, weight]) => sum + weight,
+    0,
+  )
+  let cursor = Math.random() * totalWeight
+
+  for (const [type, weight] of ATTENTION_ANIMATION_WEIGHTS) {
+    cursor -= weight
+
+    if (cursor <= 0) {
+      return type
+    }
+  }
+
+  return 'nudge'
+}
+
+function getReminderAttentionScore(reminder, todayKey) {
+  const bucket = getDrivingBucket(reminder, todayKey)
+  let score = 0
+
+  if (bucket === 'overdue') {
+    score += 5
+  }
+
+  if (isMariaReminder(reminder)) {
+    score += 4
+  }
+
+  if (reminder.priority === 'Alta') {
+    score += 3
+  }
+
+  if (bucket === 'today') {
+    score += 2
+  }
+
+  if (bucket === 'upcoming') {
+    score += 1
+  }
+
+  return score
+}
+
+function pickAttentionReminder(candidates, todayKey) {
+  if (!candidates.length) {
+    return null
+  }
+
+  const scoredCandidates = candidates
+    .map((reminder) => ({
+      reminder,
+      score: getReminderAttentionScore(reminder, todayKey),
+    }))
+    .sort((left, right) => right.score - left.score)
+
+  const topScore = scoredCandidates[0]?.score ?? 0
+  const preferredCandidates = scoredCandidates
+    .filter(({ score }) => score >= Math.max(topScore - 1, 1))
+    .slice(0, 5)
+
+  return preferredCandidates[Math.floor(Math.random() * preferredCandidates.length)]?.reminder ?? null
+}
 
 function DrivingReminderRow({
   actionState,
+  attentionAnimationType,
   highlightTone,
   onComplete,
+  rowRef,
   reminder,
   todayKey,
 }) {
@@ -47,7 +125,8 @@ function DrivingReminderRow({
 
   return (
     <article
-      className={`driving-row driving-row--${bucket} ${isMariaSource ? 'is-maria' : ''} ${isCompleting ? 'is-completing' : ''} ${isCelebrating ? 'is-celebrating' : ''} ${isExiting ? 'is-exiting' : ''} ${highlightTone ? 'is-new-arrival' : ''}`}
+      className={`driving-row driving-row--${bucket} ${isMariaSource ? 'is-maria' : ''} ${isCompleting ? 'is-completing' : ''} ${isCelebrating ? 'is-celebrating' : ''} ${isExiting ? 'is-exiting' : ''} ${highlightTone ? 'is-new-arrival' : ''} ${attentionAnimationType ? `driver-card-attention--${attentionAnimationType}` : ''}`}
+      ref={rowRef}
     >
       {isCompleting ? <CompletionCelebration compact isMaria={isMariaSource} /> : null}
 
@@ -125,6 +204,184 @@ function DrivingModeView({
   transitionStates,
   todayKey,
 }) {
+  const [attentionAnimation, setAttentionAnimation] = useState(null)
+
+  const attentionAnimationRef = useRef(null)
+  const attentionTimeoutRef = useRef(null)
+  const lastInteractionAtRef = useRef(0)
+  const prefersReducedMotionRef = useRef(false)
+  const remindersRef = useRef(reminders)
+  const highlightedRemindersRef = useRef(highlightedReminders)
+  const transitionStatesRef = useRef(transitionStates)
+  const incomingAlertRef = useRef(incomingAlert)
+  const todayKeyRef = useRef(todayKey)
+  const scrollContainerRef = useRef(null)
+  const rowRefs = useRef({})
+
+  useEffect(() => {
+    remindersRef.current = reminders
+  }, [reminders])
+
+  useEffect(() => {
+    highlightedRemindersRef.current = highlightedReminders
+  }, [highlightedReminders])
+
+  useEffect(() => {
+    transitionStatesRef.current = transitionStates
+  }, [transitionStates])
+
+  useEffect(() => {
+    incomingAlertRef.current = incomingAlert
+  }, [incomingAlert])
+
+  useEffect(() => {
+    todayKeyRef.current = todayKey
+  }, [todayKey])
+
+  useEffect(() => {
+    lastInteractionAtRef.current = Date.now()
+  }, [])
+
+  const clearAttentionAnimation = useCallback(() => {
+    if (attentionTimeoutRef.current) {
+      window.clearTimeout(attentionTimeoutRef.current)
+      attentionTimeoutRef.current = null
+    }
+
+    attentionAnimationRef.current = null
+    setAttentionAnimation(null)
+  }, [])
+
+  const markUserInteraction = useCallback(() => {
+    lastInteractionAtRef.current = Date.now()
+    clearAttentionAnimation()
+  }, [clearAttentionAnimation])
+
+  const setRowRef = useCallback((reminderId, node) => {
+    if (node) {
+      rowRefs.current[reminderId] = node
+      return
+    }
+
+    delete rowRefs.current[reminderId]
+  }, [])
+
+  const getVisibleCandidateReminders = useCallback(
+    (currentReminders, currentTransitions, currentHighlights) => {
+      const scrollNode = scrollContainerRef.current
+
+      if (!scrollNode) {
+        return []
+      }
+
+      const scrollRect = scrollNode.getBoundingClientRect()
+      const visibleTop = scrollRect.top + DRIVER_VISIBLE_ROW_THRESHOLD_PX
+      const visibleBottom = scrollRect.bottom - DRIVER_VISIBLE_ROW_THRESHOLD_PX
+
+      return currentReminders.filter((reminder) => {
+        if (currentTransitions[reminder.id] || currentHighlights[reminder.id]) {
+          return false
+        }
+
+        const rowNode = rowRefs.current[reminder.id]
+
+        if (!rowNode) {
+          return false
+        }
+
+        const rowRect = rowNode.getBoundingClientRect()
+        const visibleHeight =
+          Math.min(rowRect.bottom, visibleBottom) - Math.max(rowRect.top, visibleTop)
+
+        return visibleHeight >= DRIVER_VISIBLE_ROW_THRESHOLD_PX
+      })
+    },
+    [],
+  )
+
+  const triggerAttentionAnimation = useCallback(() => {
+    if (prefersReducedMotionRef.current) {
+      return
+    }
+
+    if (Date.now() - lastInteractionAtRef.current < DRIVER_ATTENTION_PAUSE_AFTER_INTERACTION_MS) {
+      return
+    }
+
+    if (attentionAnimationRef.current || incomingAlertRef.current) {
+      return
+    }
+
+    const currentTransitions = transitionStatesRef.current
+    const currentHighlights = highlightedRemindersRef.current
+
+    if (Object.keys(currentTransitions).length > 0 || Object.keys(currentHighlights).length > 0) {
+      return
+    }
+
+    const currentReminders = remindersRef.current
+
+    if (!currentReminders.length) {
+      return
+    }
+
+    const visibleCandidates = getVisibleCandidateReminders(
+      currentReminders,
+      currentTransitions,
+      currentHighlights,
+    )
+    const reminderToAnimate = pickAttentionReminder(visibleCandidates, todayKeyRef.current)
+
+    if (!reminderToAnimate) {
+      return
+    }
+
+    const nextAttentionAnimation = {
+      reminderId: reminderToAnimate.id,
+      type: getAttentionAnimationType(),
+    }
+
+    attentionAnimationRef.current = nextAttentionAnimation
+    setAttentionAnimation(nextAttentionAnimation)
+
+    attentionTimeoutRef.current = window.setTimeout(() => {
+      attentionTimeoutRef.current = null
+      attentionAnimationRef.current = null
+      setAttentionAnimation(null)
+    }, DRIVER_ATTENTION_ANIMATION_MS)
+  }, [getVisibleCandidateReminders])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const updateReducedMotionPreference = () => {
+      prefersReducedMotionRef.current = mediaQuery.matches
+
+      if (mediaQuery.matches) {
+        clearAttentionAnimation()
+      }
+    }
+
+    updateReducedMotionPreference()
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updateReducedMotionPreference)
+
+      return () => {
+        mediaQuery.removeEventListener('change', updateReducedMotionPreference)
+      }
+    }
+
+    mediaQuery.addListener(updateReducedMotionPreference)
+
+    return () => {
+      mediaQuery.removeListener(updateReducedMotionPreference)
+    }
+  }, [clearAttentionAnimation])
+
   useEffect(() => {
     onRefresh()
 
@@ -137,11 +394,52 @@ function DrivingModeView({
     }
   }, [onRefresh])
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      triggerAttentionAnimation()
+    }, DRIVER_ATTENTION_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+      clearAttentionAnimation()
+    }
+  }, [clearAttentionAnimation, triggerAttentionAnimation])
+
+  const handleClose = useCallback(() => {
+    markUserInteraction()
+    onClose()
+  }, [markUserInteraction, onClose])
+
+  const handleRefresh = useCallback(() => {
+    markUserInteraction()
+    onRefresh()
+  }, [markUserInteraction, onRefresh])
+
+  const handleEnableAudioAlerts = useCallback(() => {
+    markUserInteraction()
+    onEnableAudioAlerts()
+  }, [markUserInteraction, onEnableAudioAlerts])
+
+  const handleComplete = useCallback(
+    (reminder) => {
+      markUserInteraction()
+      onComplete(reminder)
+    },
+    [markUserInteraction, onComplete],
+  )
+
   return (
-    <div className="driving-mode" role="dialog" aria-modal="true" aria-labelledby="driving-mode-title">
-      <div className="driving-mode__scroll">
+    <div
+      className="driving-mode"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="driving-mode-title"
+      onClickCapture={markUserInteraction}
+      onTouchStartCapture={markUserInteraction}
+    >
+      <div className="driving-mode__scroll" onScroll={markUserInteraction} ref={scrollContainerRef}>
         <header className="driving-header">
-          <button className="icon-button icon-button--ghost icon-button--compact" onClick={onClose} type="button" aria-label="Cerrar modo manejo">
+          <button className="icon-button icon-button--ghost icon-button--compact" onClick={handleClose} type="button" aria-label="Cerrar modo manejo">
             <ArrowLeft size={22} />
           </button>
 
@@ -160,7 +458,7 @@ function DrivingModeView({
               aria-label={audioAlertsEnabled ? 'Sonido activo' : 'Activar sonido'}
               aria-pressed={audioAlertsEnabled}
               className={`icon-button icon-button--compact driving-header__sound-button ${audioAlertsEnabled ? 'is-active' : ''}`}
-              onClick={audioAlertsEnabled ? undefined : onEnableAudioAlerts}
+              onClick={audioAlertsEnabled ? undefined : handleEnableAudioAlerts}
               title={audioAlertsEnabled ? 'Sonido activo' : 'Activar sonido'}
               type="button"
             >
@@ -170,7 +468,7 @@ function DrivingModeView({
             <button
               className="icon-button icon-button--compact"
               disabled={isRefreshing}
-              onClick={onRefresh}
+              onClick={handleRefresh}
               type="button"
               aria-label="Actualizar recordatorios"
               title="Actualizar recordatorios"
@@ -207,9 +505,15 @@ function DrivingModeView({
             {reminders.map((reminder) => (
               <DrivingReminderRow
                 actionState={transitionStates[reminder.id]}
+                attentionAnimationType={
+                  attentionAnimation?.reminderId === reminder.id
+                    ? attentionAnimation.type
+                    : ''
+                }
                 highlightTone={highlightedReminders[reminder.id]}
                 key={reminder.id}
-                onComplete={onComplete}
+                onComplete={handleComplete}
+                rowRef={(node) => setRowRef(reminder.id, node)}
                 reminder={reminder}
                 todayKey={todayKey}
               />

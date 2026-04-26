@@ -1390,6 +1390,9 @@ textarea::placeholder {
 }
 
 .driving-row {
+  --driving-attention-accent: rgba(47, 128, 237, 0.24);
+  --driving-attention-glow: rgba(47, 128, 237, 0.16);
+  --driving-row-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -1402,7 +1405,7 @@ textarea::placeholder {
   border: 1px solid rgba(15, 23, 42, 0.05);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--driving-row-shadow);
   transition:
     border-color 180ms ease,
     background 180ms ease,
@@ -1428,9 +1431,12 @@ textarea::placeholder {
 }
 
 .driving-row.is-maria {
+  --driving-attention-accent: rgba(227, 93, 155, 0.32);
+  --driving-attention-glow: rgba(227, 93, 155, 0.2);
+  --driving-row-shadow: 0 8px 18px rgba(227, 93, 155, 0.08);
   border-color: rgba(227, 93, 155, 0.24);
   background: linear-gradient(180deg, rgba(255, 241, 246, 0.98), rgba(255, 255, 255, 0.98));
-  box-shadow: 0 8px 18px rgba(227, 93, 155, 0.08);
+  box-shadow: var(--driving-row-shadow);
 }
 
 .driving-row.is-maria.driving-row--overdue {
@@ -1444,6 +1450,31 @@ textarea::placeholder {
 
 .driving-row.is-new-arrival.is-maria {
   animation-name: driving-new-arrival-maria;
+}
+
+.driving-row.driver-card-attention--nudge,
+.driving-row.driver-card-attention--lift,
+.driving-row.driver-card-attention--glow,
+.driving-row.driver-card-attention--tilt {
+  z-index: 2;
+  will-change: transform, box-shadow, border-color;
+  transform-origin: center;
+}
+
+.driving-row.driver-card-attention--nudge {
+  animation: driver-card-attention-nudge 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.driving-row.driver-card-attention--lift {
+  animation: driver-card-attention-lift 540ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.driving-row.driver-card-attention--glow {
+  animation: driver-card-attention-glow 620ms ease-out;
+}
+
+.driving-row.driver-card-attention--tilt {
+  animation: driver-card-attention-tilt 560ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .driving-row__content {
@@ -2230,6 +2261,81 @@ textarea::placeholder {
     transform: translateY(0) scale(1);
     border-color: rgba(227, 93, 155, 0.24);
     box-shadow: 0 8px 18px rgba(227, 93, 155, 0.08);
+  }
+}
+
+@keyframes driver-card-attention-nudge {
+  0% {
+    transform: translateX(0);
+  }
+
+  34% {
+    transform: translateX(4px);
+  }
+
+  62% {
+    transform: translateX(-2px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes driver-card-attention-lift {
+  0% {
+    transform: translateY(0);
+    box-shadow: var(--driving-row-shadow);
+  }
+
+  42% {
+    transform: translateY(-3px);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--driving-attention-accent) 70%, white 30%),
+      0 12px 24px color-mix(in srgb, var(--driving-attention-glow) 68%, transparent 32%);
+  }
+
+  100% {
+    transform: translateY(0);
+    box-shadow: var(--driving-row-shadow);
+  }
+}
+
+@keyframes driver-card-attention-glow {
+  0% {
+    transform: translateY(0) scale(1);
+    border-color: inherit;
+  }
+
+  38% {
+    transform: translateY(-1px) scale(1.005);
+    border-color: color-mix(in srgb, var(--driving-attention-accent) 74%, white 26%);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--driving-attention-accent) 60%, white 40%),
+      0 0 18px color-mix(in srgb, var(--driving-attention-glow) 78%, transparent 22%);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+    border-color: inherit;
+  }
+}
+
+@keyframes driver-card-attention-tilt {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  28% {
+    transform: rotate(0.6deg);
+  }
+
+  58% {
+    transform: rotate(-0.4deg);
+  }
+
+  100% {
+    transform: rotate(0deg);
   }
 }
 
