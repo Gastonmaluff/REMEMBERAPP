@@ -8,6 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "functions:install": "npm --prefix functions install",
+    "functions:deploy": "npx firebase-tools deploy --only functions",
     "firebase:emulators": "npx firebase-tools emulators:start --only firestore",
     "firebase:rules": "npx firebase-tools deploy --only firestore:rules",
     "firebase:indexes": "npx firebase-tools deploy --only firestore:indexes",

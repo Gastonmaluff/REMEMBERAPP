@@ -14,6 +14,8 @@ Aplicacion de recordatorios hecha con React + Vite + Firebase/Firestore y public
 - `npm run preview`: preview local del build
 - `npm run lint`: revision de ESLint
 - `npm run deploy`: publica el build en GitHub Pages
+- `npm run functions:install`: instala dependencias de Firebase Functions
+- `npm run functions:deploy`: despliega Cloud Functions
 - `npm run firebase:rules`: despliega reglas de Firestore
 - `npm run firebase:indexes`: despliega indices de Firestore
 - `npm run firebase:deploy`: despliega reglas e indices de Firestore
@@ -31,6 +33,7 @@ Archivos versionados en el repo:
 - `firebase.json`: configuracion de Firestore y emuladores
 - `firestore.rules`: reglas de validacion para la coleccion `reminders`
 - `firestore.indexes.json`: indices versionados
+- `functions/`: backend seguro para integraciones server-side
 
 ### Que protegen las reglas actuales
 
@@ -84,6 +87,31 @@ npm run deploy
 
 ```bash
 npm run firebase:deploy
+```
+
+### Telegram con Cloud Functions
+
+La funcion `sendTelegramReminderNotification` escucha solo creaciones nuevas en:
+
+- `reminders/{reminderId}`
+
+Y envia Telegram:
+
+- mensaje normal para recordatorios creados desde la app principal
+- mensaje especial si `createdBy === "maria"` o `source === "maria_portal"`
+
+Secrets requeridos:
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+
+Comandos:
+
+```bash
+npm run functions:install
+firebase functions:secrets:set TELEGRAM_BOT_TOKEN
+firebase functions:secrets:set TELEGRAM_CHAT_ID
+npm run functions:deploy
 ```
 
 ## Siguiente mejora recomendada
