@@ -1,12 +1,16 @@
 import { useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import BottomNav from './BottomNav'
+import DesktopSidebar from './DesktopSidebar'
 
 function AppShell({
+  activeFilter,
   activeTab,
   children,
   isOverlayOpen,
   overlayContent,
+  onFilterChange,
+  onOpenDrivingMode,
   onOpenModal,
   onTabChange,
 }) {
@@ -29,6 +33,13 @@ function AppShell({
   return (
     <div className="app-shell">
       <div className={`app-shell__frame ${isOverlayOpen ? 'is-overlay-open' : ''}`}>
+        <DesktopSidebar
+          activeFilter={activeFilter}
+          onFilterChange={onFilterChange}
+          onOpenDrivingMode={onOpenDrivingMode}
+          onOpenModal={onOpenModal}
+        />
+
         <div className="app-shell__content">{children}</div>
 
         <div className={`app-shell__dock ${isOverlayOpen ? 'is-hidden' : ''}`}>
