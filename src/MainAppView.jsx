@@ -10,6 +10,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import AppShell from './components/AppShell'
+import DesktopOverviewPanel from './components/DesktopOverviewPanel'
 import DrivingModeView from './components/DrivingModeView'
 import FilterChips from './components/FilterChips'
 import NewReminderModal from './components/NewReminderModal'
@@ -622,8 +623,11 @@ function MainAppView() {
 
   return (
     <AppShell
+      activeFilter={activeFilter}
       activeTab={activeTab}
       isOverlayOpen={Boolean(overlayContent)}
+      onFilterChange={setActiveFilter}
+      onOpenDrivingMode={openDrivingMode}
       onOpenModal={openReminderModal}
       onTabChange={setActiveTab}
       overlayContent={overlayContent}
@@ -638,6 +642,14 @@ function MainAppView() {
         </div>
 
         <div className="dashboard-actions" aria-label="Acciones principales">
+          <button
+            className="desktop-new-button"
+            type="button"
+            onClick={openReminderModal}
+          >
+            <Plus size={18} />
+            <span>Nuevo recordatorio</span>
+          </button>
           <button
             className="icon-button icon-button--notification"
             type="button"
@@ -656,29 +668,33 @@ function MainAppView() {
         </div>
       </header>
 
-      <div className="search-field">
-        <Search size={20} />
-        <input
-          aria-label="Buscar recordatorios"
-          onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Buscar recordatorios"
-          type="search"
-          value={searchTerm}
-        />
-        <button className="search-field__action" type="button" aria-label="Filtrar resultados">
-          <SlidersHorizontal size={19} />
-        </button>
-      </div>
+      <div className="dashboard-workspace">
+        <div className="dashboard-primary-column">
+          <div className="dashboard-controls-card">
+            <div className="search-field">
+              <Search size={20} />
+              <input
+                aria-label="Buscar recordatorios"
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Buscar recordatorios"
+                type="search"
+                value={searchTerm}
+              />
+              <button className="search-field__action" type="button" aria-label="Filtrar resultados">
+                <SlidersHorizontal size={19} />
+              </button>
+            </div>
 
-      <FilterChips
-        activeValue={activeFilter}
-        onChange={setActiveFilter}
-        options={FILTER_OPTIONS}
-      />
+            <FilterChips
+              activeValue={activeFilter}
+              onChange={setActiveFilter}
+              options={FILTER_OPTIONS}
+            />
+          </div>
 
-      <ReminderStats stats={stats} />
+          <ReminderStats stats={stats} />
 
-      <section className="list-section" aria-labelledby="reminders-section-title">
+          <section className="list-section" aria-labelledby="reminders-section-title">
         <div className="list-section__header">
           <h2 id="reminders-section-title">{getSectionTitle(activeFilter)}</h2>
 
@@ -775,7 +791,19 @@ function MainAppView() {
             ) : null}
           </section>
         ) : null}
-      </section>
+          </section>
+        </div>
+
+        <DesktopOverviewPanel
+          completedToday={completedToday}
+          onOpenDrivingMode={openDrivingMode}
+          onOpenModal={openReminderModal}
+          pendingReminders={pendingReminders}
+          pendingToday={pendingToday}
+          progress={progress}
+          totalToday={totalToday}
+        />
+      </div>
     </AppShell>
   )
 }
